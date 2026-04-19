@@ -1,0 +1,11 @@
+chromadb>=0.5.0
+openai>=1.0.0
+streamlit>=1.35.0
+sentence-transformers>=2.7.0
+pandas
+openpyxl
+networkx
+pydot
+scikit-image
+matplotlib
+python-docx
