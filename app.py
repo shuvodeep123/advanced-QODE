@@ -151,26 +151,8 @@ st.caption(
     "Powered by ChromaDB · KodeKloud LLM (Claude Sonnet 4.5) · Graphviz"
 )
 
-# Display welcome message if no history yet
-if not st.session_state.messages:
-    with st.chat_message("assistant"):
-        st.markdown(_WELCOME)
-
-# Render existing conversation
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        if msg["role"] == "assistant":
-            # Check if a diagram path is attached
-            st.markdown(msg["content"])
-            if "diagram_path" in msg and msg["diagram_path"]:
-                _render_diagram(msg["diagram_path"], msg.get("diagram_type", ""))
-        else:
-            st.markdown(msg["content"])
-
 # ---------------------------------------------------------------------------
-# Diagram rendering helper (defined before use in the loop above — Python
-# doesn't hoist, so we define it here and the re-render loop above calls it
-# only for historical messages after the first run).
+# Diagram rendering helper — defined before the history-render loop below.
 # ---------------------------------------------------------------------------
 def _render_diagram(path: str, dtype: str) -> None:
     """Display a diagram image or DOT source in the chat."""
@@ -189,7 +171,7 @@ def _render_diagram(path: str, dtype: str) -> None:
                 mime="image/png",
             )
     else:
-        # Fallback: show DOT source
+        # Fallback: show DOT source when Graphviz is not available locally
         dot_text = p.read_text(encoding="utf-8", errors="replace")
         st.code(dot_text, language="dot")
         st.download_button(
@@ -200,14 +182,25 @@ def _render_diagram(path: str, dtype: str) -> None:
         )
         st.info(
             "💡 Graphviz is not installed locally. "
-            "Paste the DOT source into [Graphviz Online](https://dreampuf.github.io/GraphvizOnline/) to visualise."
+            "Paste the DOT source into [Graphviz Online](https://dreampuf.github.io/GraphvizOnline/) to visualize."
         )
 
 
-# Re-render historical diagrams that are attached to assistant messages
-# (the loop above calls _render_diagram for each, but it was defined after
-# the loop — Streamlit re-runs the whole script so on the next run order
-# is correct; this is fine for a Streamlit app).
+# Display welcome message if no history yet
+if not st.session_state.messages:
+    with st.chat_message("assistant"):
+        st.markdown(_WELCOME)
+
+# Render existing conversation
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        if msg["role"] == "assistant":
+            # Check if a diagram path is attached
+            st.markdown(msg["content"])
+            if "diagram_path" in msg and msg["diagram_path"]:
+                _render_diagram(msg["diagram_path"], msg.get("diagram_type", ""))
+        else:
+            st.markdown(msg["content"])
 
 # ---------------------------------------------------------------------------
 # Chat input

@@ -92,7 +92,7 @@ def _wants_diagram(query: str) -> bool:
 # ---------------------------------------------------------------------------
 
 _SYSTEM_PROMPT = """\
-You are an expert DevSecOps consultant specialising in the advanced-QODE framework \
+You are an expert DevSecOps consultant specializing in the advanced-QODE framework \
 (Quality & Optimization of DevSecOps Engineering).  advanced-QODE assesses DevSecOps \
 maturity across 9 SDLC pillars and produces three types of Graphviz diagrams:
 

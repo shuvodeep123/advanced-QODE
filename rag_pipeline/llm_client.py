@@ -16,9 +16,18 @@ from openai import OpenAI
 # ---------------------------------------------------------------------------
 # Configuration — override via environment variables when desired.
 # ---------------------------------------------------------------------------
-_API_KEY = os.environ.get("KODEKLOUD_API_KEY", "sk-bjhEx0Xa0dCm8kOF0hzUHg")
+_API_KEY = os.environ.get("KODEKLOUD_API_KEY") or "sk-bjhEx0Xa0dCm8kOF0hzUHg"
 _BASE_URL = os.environ.get("KODEKLOUD_BASE_URL", "https://api.ai.kodekloud.com/v1")
 MODEL = os.environ.get("KODEKLOUD_MODEL", "anthropic/claude-sonnet-4.5")
+
+
+def _validate_config() -> None:
+    """Raise a clear error if the API key is missing."""
+    if not _API_KEY:
+        raise EnvironmentError(
+            "KodeKloud API key is not configured.  "
+            "Set the KODEKLOUD_API_KEY environment variable."
+        )
 
 _client: OpenAI | None = None
 
@@ -27,6 +36,7 @@ def _get_client() -> OpenAI:
     """Return a cached OpenAI client pointed at the KodeKloud endpoint."""
     global _client
     if _client is None:
+        _validate_config()
         _client = OpenAI(api_key=_API_KEY, base_url=_BASE_URL)
     return _client
 

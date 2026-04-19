@@ -18,10 +18,14 @@ Returns a list of dicts, each with keys:
 
 from __future__ import annotations
 
+import logging
+
 import chromadb
 from chromadb.utils import embedding_functions
 
 from .ingest import COLLECTION_NAME, _EMBED_MODEL
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Valid diagram type values accepted by the metadata filter
@@ -78,9 +82,12 @@ def retrieve(
 
     try:
         results = collection.query(**query_kwargs)
-    except Exception:
-        # If the collection is empty or filter yields no results, fall back
-        # to an unfiltered query.
+    except Exception as exc:
+        # If the collection is empty or the filter yields no results, fall back
+        # to an unfiltered query so the user still gets relevant context.
+        logger.warning(
+            "Filtered ChromaDB query failed (%s); retrying without filter.", exc
+        )
         query_kwargs.pop("where", None)
         results = collection.query(**query_kwargs)
 

@@ -183,6 +183,9 @@ def _docs_from_excel(excel_path: str | Path) -> list[dict[str, Any]]:
     try:
         df_raw = pd.read_excel(
             str(excel_path), sheet_name="Q_Stories", header=3
+            # The Q_Stories sheet has a 3-row header (header=3) plus two extra
+            # decorative/instruction rows before the actual data starts; iloc[2:]
+            # skips those two non-data rows.
         ).iloc[2:]
     except Exception as exc:
         raise RuntimeError(
