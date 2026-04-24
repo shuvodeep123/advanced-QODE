@@ -1,23 +1,28 @@
 """
-ingest.py — ChromaDB document ingestion for advanced-QODE.
+ingest.py — Multi-format ChromaDB document ingestion for advanced-QODE.
 
-Ingests the following knowledge sources into a persistent ChromaDB collection:
-  1. Q_Stories rows from the QODE Excel questionnaire (one doc per Yes-row).
-  2. The project README.md, chunked into ~500-character segments.
-  3. The three diagram Python scripts (as domain knowledge).
-  4. Hardcoded descriptions of the 9 SDLC pillars assessed by QODE.
+Supported file types:
+  .xlsm / .xlsx   QODE questionnaire (Q_Stories sheet)
+  .docx           Word documents (python-docx)
+  .pdf            PDF documents (pypdf)
+  .txt            Plain text
+
+Knowledge sources ingested:
+  1. Hardcoded QODE pillar descriptions (9 pillars, always ingested).
+  2. README.md from the repo root.
+  3. Three diagram generator Python scripts.
+  4. Q_Stories rows from the QODE Excel questionnaire (Yes-rows only).
+  5. Any extra files passed via extra_file_paths (.docx / .pdf / .txt).
 
 Public API
 ----------
-    ingest_all(excel_path: str | Path, chroma_path: str = "./chroma_db") -> None
-        Full re-ingest from an Excel questionnaire + static sources.
-
-    ingest_documents(docs: list[dict], chroma_path: str = "./chroma_db") -> None
-        Ingest an arbitrary list of {"id", "text", "metadata"} dicts.
+    ingest_all(excel_path, chroma_path, repo_root, graph_path, extra_file_paths) -> int
+    ingest_documents(docs, chroma_path) -> None
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import uuid
@@ -27,8 +32,10 @@ from typing import Any
 import chromadb
 from chromadb.utils import embedding_functions
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
-# Hardcoded QODE domain knowledge: the 9 SDLC pillars
+# Hardcoded QODE domain knowledge: 9 Engineering Pillars
 # ---------------------------------------------------------------------------
 _QODE_PILLARS: list[dict[str, Any]] = [
     {
@@ -147,19 +154,17 @@ COLLECTION_NAME = "qode_knowledge"
 
 def _get_collection(chroma_path: str) -> chromadb.Collection:
     client = chromadb.PersistentClient(path=chroma_path)
-    collection = client.get_or_create_collection(
+    return client.get_or_create_collection(
         name=COLLECTION_NAME,
         embedding_function=_get_embedding_function(),
         metadata={"hnsw:space": "cosine"},
     )
-    return collection
 
 
 # ---------------------------------------------------------------------------
 # Text chunking helper
 # ---------------------------------------------------------------------------
 def _chunk_text(text: str, max_chars: int = 500, overlap: int = 50) -> list[str]:
-    """Split *text* into overlapping chunks of at most *max_chars* characters."""
     chunks: list[str] = []
     start = 0
     while start < len(text):
@@ -174,8 +179,100 @@ def _chunk_text(text: str, max_chars: int = 500, overlap: int = 50) -> list[str]
 
 
 # ---------------------------------------------------------------------------
+# Format-specific readers
+# ---------------------------------------------------------------------------
+
+def _read_docx(file_path: Path) -> str:
+    """Extract plain text from a .docx file."""
+    try:
+        from docx import Document  # type: ignore[import]
+        doc = Document(str(file_path))
+        return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+    except ImportError:
+        raise RuntimeError(
+            "python-docx is required for .docx ingestion. "
+            "Install with: pip install python-docx"
+        )
+    except Exception as exc:
+        raise RuntimeError(f"Failed to read DOCX '{file_path}': {exc}") from exc
+
+
+def _read_pdf(file_path: Path) -> str:
+    """Extract plain text from a .pdf file."""
+    try:
+        from pypdf import PdfReader  # type: ignore[import]
+        reader = PdfReader(str(file_path))
+        pages = [page.extract_text() or "" for page in reader.pages]
+        return "\n".join(pages)
+    except ImportError:
+        raise RuntimeError(
+            "pypdf is required for .pdf ingestion. "
+            "Install with: pip install pypdf"
+        )
+    except Exception as exc:
+        raise RuntimeError(f"Failed to read PDF '{file_path}': {exc}") from exc
+
+
+def _read_txt(file_path: Path) -> str:
+    """Read plain text file."""
+    try:
+        return file_path.read_text(encoding="utf-8", errors="replace")
+    except Exception as exc:
+        raise RuntimeError(f"Failed to read TXT '{file_path}': {exc}") from exc
+
+
+def _read_file(file_path: Path) -> str:
+    """Dispatch to the correct reader based on file extension."""
+    ext = file_path.suffix.lower()
+    readers = {
+        ".docx": _read_docx,
+        ".pdf": _read_pdf,
+        ".txt": _read_txt,
+        ".py": _read_txt,
+        ".md": _read_txt,
+    }
+    reader = readers.get(ext)
+    if reader is None:
+        raise ValueError(f"Unsupported file type: {ext}")
+    return reader(file_path)
+
+
+# ---------------------------------------------------------------------------
 # Source-specific ingestion helpers
 # ---------------------------------------------------------------------------
+
+def _docs_from_file(
+    file_path: str | Path,
+    source_label: str,
+    diagram_type: str,
+) -> list[dict[str, Any]]:
+    """Read any supported file, chunk it, and return document dicts."""
+    path = Path(file_path)
+    if not path.exists():
+        logger.warning("File not found, skipping: %s", path)
+        return []
+    try:
+        content = _read_file(path)
+    except Exception as exc:
+        logger.error("Could not read %s: %s", path, exc)
+        return []
+
+    chunks = _chunk_text(content)
+    return [
+        {
+            "id": f"{source_label}_chunk_{idx}_{uuid.uuid4().hex[:6]}",
+            "text": chunk,
+            "metadata": {
+                "source": source_label,
+                "chunk_index": str(idx),
+                "diagram_type": diagram_type,
+                "filename": path.name,
+            },
+        }
+        for idx, chunk in enumerate(chunks)
+    ]
+
+
 def _docs_from_excel(excel_path: str | Path) -> list[dict[str, Any]]:
     """Convert Q_Stories rows from the Excel workbook into document dicts."""
     import pandas as pd
@@ -183,9 +280,6 @@ def _docs_from_excel(excel_path: str | Path) -> list[dict[str, Any]]:
     try:
         df_raw = pd.read_excel(
             str(excel_path), sheet_name="Q_Stories", header=3
-            # The Q_Stories sheet has a 3-row header (header=3) plus two extra
-            # decorative/instruction rows before the actual data starts; iloc[2:]
-            # skips those two non-data rows.
         ).iloc[2:]
     except Exception as exc:
         raise RuntimeError(
@@ -214,7 +308,6 @@ def _docs_from_excel(excel_path: str | Path) -> list[dict[str, Any]]:
             f"AutomationTool='{tool}', Criticality='{criticality}', "
             f"Predecessor='{pred1}'."
         )
-
         docs.append(
             {
                 "id": f"qstory_{s_num}_{uuid.uuid4().hex[:6]}",
@@ -233,45 +326,16 @@ def _docs_from_excel(excel_path: str | Path) -> list[dict[str, Any]]:
     return docs
 
 
-def _docs_from_file(
-    file_path: str | Path, source_label: str, diagram_type: str
-) -> list[dict[str, Any]]:
-    """Read a text file, chunk it, and return document dicts."""
-    path = Path(file_path)
-    if not path.exists():
-        return []
-    content = path.read_text(encoding="utf-8", errors="replace")
-    chunks = _chunk_text(content)
-    docs: list[dict[str, Any]] = []
-    for idx, chunk in enumerate(chunks):
-        docs.append(
-            {
-                "id": f"{source_label}_chunk_{idx}_{uuid.uuid4().hex[:6]}",
-                "text": chunk,
-                "metadata": {
-                    "source": source_label,
-                    "chunk_index": str(idx),
-                    "diagram_type": diagram_type,
-                },
-            }
-        )
-    return docs
-
-
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 def ingest_documents(
     docs: list[dict[str, Any]], chroma_path: str = "./chroma_db"
 ) -> None:
     """Upsert a list of document dicts into ChromaDB.
 
-    Each dict must have keys: ``id`` (str), ``text`` (str),
-    ``metadata`` (dict[str, str]).
-
-    Args:
-        docs:        List of document dictionaries.
-        chroma_path: Path to the ChromaDB persistence directory.
+    Each dict must have keys: ``id`` (str), ``text`` (str), ``metadata`` (dict).
     """
     if not docs:
         return
@@ -287,28 +351,23 @@ def ingest_all(
     excel_path: str | Path | None = None,
     chroma_path: str = "./chroma_db",
     repo_root: str | Path | None = None,
+    graph_path: str | None = None,
+    extra_file_paths: list[str] | None = None,
 ) -> int:
     """Full re-ingest from all QODE knowledge sources.
 
-    Sources:
-    - Hardcoded QODE pillar descriptions (always ingested).
-    - README.md from the repo root (if found).
-    - The three diagram generator scripts (if found).
-    - Q_Stories rows from *excel_path* (if provided).
-
     Args:
-        excel_path:  Path to the QODE questionnaire ``.xlsm`` file.
-                     Pass ``None`` to skip Excel ingestion.
-        chroma_path: Path to ChromaDB persistence directory.
-        repo_root:   Root directory of the repo.  Defaults to the parent
-                     of this file's directory.
+        excel_path:        Path to the QODE questionnaire .xlsm/.xlsx file.
+        chroma_path:       ChromaDB persistence directory.
+        repo_root:         Repo root directory (defaults to parent of this file).
+        graph_path:        Destination for the QODE knowledge graph JSON.
+        extra_file_paths:  Additional files to ingest (.docx / .pdf / .txt).
 
     Returns:
         Total number of documents upserted.
     """
     if repo_root is None:
         repo_root = Path(__file__).resolve().parent.parent
-
     repo_root = Path(repo_root)
 
     all_docs: list[dict[str, Any]] = []
@@ -317,24 +376,51 @@ def ingest_all(
     all_docs.extend(_QODE_PILLARS)
 
     # 2. README.md
-    all_docs.extend(
-        _docs_from_file(repo_root / "README.md", "readme", "general")
-    )
+    all_docs.extend(_docs_from_file(repo_root / "README.md", "readme", "general"))
 
-    # 3. Diagram scripts
+    # 3. Core diagram generator scripts
     script_map = {
         "script_process": ("Generate_Process_Network_Diagram.py", "process"),
         "script_people": ("Generate_People_Diagram.py", "people"),
         "script_technology": ("Generate_Technology_Diagram.py", "technology"),
     }
     for label, (filename, dtype) in script_map.items():
-        all_docs.extend(
-            _docs_from_file(repo_root / filename, label, dtype)
-        )
+        all_docs.extend(_docs_from_file(repo_root / filename, label, dtype))
 
     # 4. Excel questionnaire
     if excel_path is not None:
-        all_docs.extend(_docs_from_excel(excel_path))
+        try:
+            all_docs.extend(_docs_from_excel(excel_path))
+        except Exception as exc:
+            logger.warning("Excel ingestion skipped: %s", exc)
+
+    # 5. Extra files (.docx / .pdf / .txt)
+    for fpath in (extra_file_paths or []):
+        path = Path(fpath)
+        ext = path.suffix.lower().lstrip(".")
+        label = f"extra_{path.stem}_{uuid.uuid4().hex[:4]}"
+        docs = _docs_from_file(path, label, "general")
+        if docs:
+            logger.info("Ingested %d chunks from %s", len(docs), path.name)
+        all_docs.extend(docs)
 
     ingest_documents(all_docs, chroma_path=chroma_path)
+
+    # 6. Build and persist the QODE knowledge graph (non-fatal)
+    _resolved_graph_path = (
+        graph_path
+        if graph_path is not None
+        else str(Path(chroma_path).parent / "graph_db" / "qode_graph.json")
+    )
+    try:
+        from .graph_builder import build_graph, save_graph
+
+        graph = build_graph(excel_path=excel_path)
+        save_graph(graph, graph_path=_resolved_graph_path)
+        logger.info("Knowledge graph saved to %s", _resolved_graph_path)
+    except Exception as exc:
+        logger.warning(
+            "Knowledge graph build failed (non-fatal, vector-only mode active): %s", exc
+        )
+
     return len(all_docs)
