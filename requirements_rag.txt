@@ -1,11 +1,42 @@
-chromadb>=0.5.0
-openai>=1.0.0
+# ── Core RAG pipeline ────────────────────────────────────────────────────────
+chromadb>=0.5.0               # Vector database (persistent)
+openai>=1.0.0                 # OpenAI-compatible LLM client (KodeKloud)
+sentence-transformers>=2.7.0  # Embedding model (all-MiniLM-L6-v2)
+networkx>=3.3                 # Knowledge graph (QODEKnowledgeGraph)
+
+# ── Streamlit UI ──────────────────────────────────────────────────────────────
 streamlit>=1.35.0
-sentence-transformers>=2.7.0
-pandas
-openpyxl
-networkx
-pydot
-scikit-image
-matplotlib
-python-docx
+
+# ── Data / Excel ─────────────────────────────────────────────────────────────
+pandas>=2.2.0
+openpyxl>=3.1.0
+
+# ── Diagram rendering ─────────────────────────────────────────────────────────
+pydot>=2.0.0                  # Graphviz DOT → PNG
+scikit-image>=0.22.0          # Image I/O helpers
+matplotlib>=3.8.0             # Plotting utilities
+
+# ── Multi-format document ingestion ──────────────────────────────────────────
+python-docx>=1.1.0            # .docx ingestion
+pypdf>=4.0.0                  # .pdf ingestion
+
+# ── LangGraph agentic router ─────────────────────────────────────────────────
+langgraph>=0.2.0              # Stateful agentic graph (As-Is vs Principles routing)
+langchain>=0.2.0              # LangChain core (LCEL, message schema)
+langchain-openai>=0.1.0       # OpenAI-compatible LangChain LLM
+
+# ── LlamaIndex (Graph-RAG retrieval) ─────────────────────────────────────────
+llama-index>=0.10.0           # LlamaIndex core
+llama-index-graph-stores-neo4j>=0.1.0  # Neo4j graph store (optional, production)
+
+# ── Langfuse (observability & tracing) ───────────────────────────────────────
+langfuse>=2.0.0               # Tracing, scoring, and eval dashboards
+
+# ── Evaluation (RAGAS) ────────────────────────────────────────────────────────
+ragas>=0.1.0                  # RAG evaluation: faithfulness, answer relevancy
+datasets>=2.19.0              # HuggingFace datasets (required by RAGAS)
+
+# ── Development & testing ────────────────────────────────────────────────────
+pytest>=8.2.0
+pytest-cov>=5.0.0
+pytest-mock>=3.14.0
