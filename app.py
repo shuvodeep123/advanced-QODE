@@ -1,17 +1,26 @@
 """
 app.py — Streamlit chat interface for the advanced-QODE GenAI Diagram Assistant.
 
-Architecture:
-  - As-Is path  : RAG only, no LLM — generates diagrams directly from core Python files.
-  - Principles path : LLM + Graph-RAG using 9 Engineering Principles × 3 Disciplines.
+Architecture
+------------
+  📊 As-Is path       : RAG only, zero LLM — generates diagrams from the 3 core Python files.
+  🧠 Principles path  : LLM + Graph-RAG across 9 Engineering Principles × 3 Disciplines.
 
-Run with:
+UI layer
+--------
+  ui/theme.py      — Figma design tokens (colours, typography, spacing)
+  ui/styles.css    — Full custom CSS matching Figma frame "advanced-QODE · GenAI Assistant"
+  ui/components.py — Reusable HTML/CSS Streamlit components (bubbles, badges, cards)
+
+Run
+---
     streamlit run app.py
+    # or
+    bash run.sh
 """
 
 from __future__ import annotations
 
-import os
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -19,17 +28,32 @@ from typing import Any
 import streamlit as st
 
 # ---------------------------------------------------------------------------
-# Page configuration (must be the first Streamlit call)
+# Page configuration — MUST be the very first Streamlit call
 # ---------------------------------------------------------------------------
-st.set_page_config(
-    page_title="advanced-QODE — GenAI Diagram Assistant",
-    page_icon="🔷",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+from ui.theme import PAGE_CONFIG
+
+st.set_page_config(**PAGE_CONFIG)
 
 # ---------------------------------------------------------------------------
-# Lazy imports — only pulled in after page config
+# CSS injection — second call, before any visible content
+# ---------------------------------------------------------------------------
+from ui.components import (
+    inject_css,
+    render_header,
+    render_welcome,
+    render_user_bubble,
+    render_assistant_bubble,
+    render_mode_badge,
+    render_eval_bar,
+    render_diagram_card,
+    render_sidebar_section,
+    render_info_card,
+)
+
+inject_css()
+
+# ---------------------------------------------------------------------------
+# Lazy domain imports (after page config)
 # ---------------------------------------------------------------------------
 from rag_pipeline.chain import run_chain, detect_intent, detect_asis_request
 from rag_pipeline.ingest import ingest_all
@@ -40,22 +64,8 @@ from rag_pipeline.graph_retriever import invalidate_cache
 # Constants
 # ---------------------------------------------------------------------------
 _CHROMA_PATH = "./chroma_db"
-_GRAPH_PATH = DEFAULT_GRAPH_PATH
-
-_SUPPORTED_TYPES = ["xlsm", "xlsx", "docx", "pdf", "txt"]
-
-_WELCOME = (
-    "👋 Welcome to the **advanced-QODE GenAI Diagram Assistant**!\n\n"
-    "I operate in two modes:\n\n"
-    "**📊 As-Is Architecture Mode** *(no LLM — fast & deterministic)*\n"
-    "- Generates People / Process / Technology diagrams directly from your questionnaire.\n"
-    "- Ask: *\"Create an As-Is People Architecture\"* or *\"Generate the As-Is Process diagram\"*\n\n"
-    "**🧠 Engineering Principles Mode** *(LLM + Graph-RAG)*\n"
-    "- Reasons across 9 Engineering Principles × 3 Disciplines (People, Process, Technology).\n"
-    "- Ask: *\"How can I improve Security for my Technology stack?\"* or "
-    "*\"Suggest Reliability improvements for our Process\"*\n\n"
-    "**Get started:** Upload your questionnaire in the sidebar, then ask away!"
-)
+_GRAPH_PATH  = DEFAULT_GRAPH_PATH
+_SUPPORTED   = ["xlsm", "xlsx", "docx", "pdf", "txt"]
 
 _PRINCIPLES = [
     "1. Requirement Engineering",
@@ -68,39 +78,72 @@ _PRINCIPLES = [
     "8. Reliability",
     "9. Ontology Engineering",
 ]
-
 _DISCIPLINES = ["People", "Process", "Technology"]
 
 # ---------------------------------------------------------------------------
 # Session-state initialisation
 # ---------------------------------------------------------------------------
-defaults: dict[str, Any] = {
-    "messages": [],
-    "uploaded_files": {},      # filename -> tmp path
-    "ingested": False,
-    "diagram_paths": {},
+_DEFAULTS: dict[str, Any] = {
+    "messages":           [],    # list[dict] — chat history
+    "uploaded_files":     {},    # filename → tmp path
+    "ingested":           False,
+    "diagram_paths":      {},    # dtype → latest diagram path
     "selected_principle": None,
-    "selected_discipline": None,
+    "selected_discipline": "Technology",
+    "msg_count":          0,     # for sidebar stat
 }
-for key, val in defaults.items():
-    if key not in st.session_state:
-        st.session_state[key] = val
+for _k, _v in _DEFAULTS.items():
+    if _k not in st.session_state:
+        st.session_state[_k] = _v
 
 # ---------------------------------------------------------------------------
-# Sidebar
+# ── SIDEBAR ─────────────────────────────────────────────────────────────────
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.title("🔷 advanced-QODE")
-    st.caption("GenAI Diagram Assistant · Graph-RAG Edition")
+
+    # Brand mark
+    st.markdown(
+        """
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0 4px;">
+          <span style="font-size:1.6rem;">🔷</span>
+          <div>
+            <div style="font-size:1rem;font-weight:700;color:#f0f6fc;">advanced-QODE</div>
+            <div style="font-size:0.7rem;color:#8b949e;letter-spacing:0.05em;">
+              GenAI Diagram Assistant
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     st.divider()
 
-    # ── File uploader (multi-format) ───────────────────────────────────────
-    st.subheader("📂 Upload Documents")
+    # ── Session stats ──────────────────────────────────────────────────────
+    render_sidebar_section("Session")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        render_info_card(
+            "Messages",
+            str(len(st.session_state.messages)),
+            "#3b82f6",
+        )
+    with col_b:
+        render_info_card(
+            "Diagrams",
+            str(len(st.session_state.diagram_paths)),
+            "#10b981",
+        )
+
+    st.divider()
+
+    # ── File uploader ──────────────────────────────────────────────────────
+    render_sidebar_section("📂 Upload Documents")
     uploaded_files = st.file_uploader(
-        "Supported: .xlsm · .xlsx · .docx · .pdf · .txt",
-        type=_SUPPORTED_TYPES,
+        "xlsm · xlsx · docx · pdf · txt",
+        type=_SUPPORTED,
         accept_multiple_files=True,
-        help="Upload your QODE questionnaire and any supporting documents.",
+        help="Upload your QODE questionnaire (.xlsm/.xlsx) and any supporting docs.",
+        label_visibility="collapsed",
     )
 
     if uploaded_files:
@@ -112,10 +155,9 @@ with st.sidebar:
                     st.session_state.uploaded_files[uf.name] = tmp.name
                 st.session_state.ingested = False  # force re-ingest on new file
 
-        if st.session_state.uploaded_files:
-            st.success(f"✅ {len(st.session_state.uploaded_files)} file(s) loaded.")
+        st.success(f"✅ {len(st.session_state.uploaded_files)} file(s) ready")
 
-    # ── Ingest trigger ─────────────────────────────────────────────────────
+    # ── Resolve paths ──────────────────────────────────────────────────────
     excel_path: str | None = None
     extra_docs: list[str] = []
     for fname, fpath in st.session_state.uploaded_files.items():
@@ -124,8 +166,9 @@ with st.sidebar:
         else:
             extra_docs.append(fpath)
 
+    # ── Ingest ────────────────────────────────────────────────────────────
     if not st.session_state.ingested:
-        with st.spinner("🔄 Ingesting knowledge base …"):
+        with st.spinner("🔄 Building knowledge base …"):
             try:
                 n_docs = ingest_all(
                     excel_path=excel_path,
@@ -134,130 +177,110 @@ with st.sidebar:
                 )
                 st.session_state.ingested = True
                 invalidate_cache(graph_path=_GRAPH_PATH, chroma_path=_CHROMA_PATH)
-                st.success(f"✅ Ingested {n_docs} documents.")
-            except Exception as e:
-                st.error(f"Ingestion error: {e}")
+                render_info_card("Docs indexed", str(n_docs), "#10b981")
+            except Exception as exc:
+                st.error(f"Ingestion error: {exc}")
 
     st.divider()
 
     # ── Engineering Principles selector ───────────────────────────────────
-    st.subheader("⚙️ Engineering Principles")
+    render_sidebar_section("⚙️ Engineering Principles")
     selected_principle = st.selectbox(
-        "Apply principle (optional)",
+        "Principle",
         options=["— none —"] + _PRINCIPLES,
         index=0,
-        help="Prefix your question with a specific principle for targeted LLM reasoning.",
+        help="Prefix your question with this principle for targeted LLM reasoning.",
+        label_visibility="collapsed",
     )
     selected_discipline = st.radio(
         "Discipline",
         options=_DISCIPLINES,
         horizontal=True,
+        index=_DISCIPLINES.index(st.session_state.selected_discipline),
     )
     st.session_state.selected_principle = (
         None if selected_principle == "— none —" else selected_principle
     )
     st.session_state.selected_discipline = selected_discipline
 
+    if selected_principle != "— none —":
+        st.markdown(
+            f'<div style="font-size:0.75rem;color:#8b5cf6;padding:4px 0;">'
+            f'🔗 Lens: <strong>{selected_principle}</strong> × <strong>{selected_discipline}</strong>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
     st.divider()
 
-    # ── Quick-action pills ─────────────────────────────────────────────────
-    st.subheader("⚡ Quick Actions — As-Is Diagrams")
-    col1, col2, col3 = st.columns(3)
+    # ── Quick-action buttons ───────────────────────────────────────────────
+    render_sidebar_section("⚡ As-Is Diagrams")
 
-    def _quick_prompt(prompt: str) -> None:
-        st.session_state._quick_input = prompt
+    def _qprompt(p: str) -> None:
+        st.session_state._quick_input = p
 
-    with col1:
-        if st.button("📊 Process", use_container_width=True):
-            _quick_prompt("Create an As-Is Process Network Architecture diagram.")
-    with col2:
-        if st.button("👥 People", use_container_width=True):
-            _quick_prompt("Create an As-Is People Architecture diagram.")
-    with col3:
-        if st.button("🔧 Technology", use_container_width=True):
-            _quick_prompt("Create an As-Is Technology Architecture diagram.")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        if st.button("📊\nProcess", use_container_width=True):
+            _qprompt("Create an As-Is Process Network Architecture diagram.")
+    with c2:
+        if st.button("👥\nPeople", use_container_width=True):
+            _qprompt("Create an As-Is People Architecture diagram.")
+    with c3:
+        if st.button("🔧\nTech", use_container_width=True):
+            _qprompt("Create an As-Is Technology Architecture diagram.")
 
     st.divider()
 
     # ── Chat controls ──────────────────────────────────────────────────────
-    st.subheader("🗂 Chat")
-    if st.button("🗑 Clear conversation", use_container_width=True):
+    render_sidebar_section("🗂 Conversation")
+    if st.button("🗑 Clear chat", use_container_width=True):
         st.session_state.messages = []
         st.session_state.diagram_paths = {}
         st.rerun()
 
     st.divider()
-    st.subheader("💡 Example Questions")
+
+    # ── Example prompts ────────────────────────────────────────────────────
+    render_sidebar_section("💡 Example Prompts")
     examples = [
         "Create an As-Is People Architecture.",
         "Create an As-Is Technology Architecture.",
-        "How can I improve Security for my Process?",
-        "Suggest Reliability improvements for Technology.",
-        "Which activities on the critical path are fully manual?",
-        "What Requirement Engineering gaps exist in my People setup?",
+        "How can I improve Security for my Technology?",
+        "Suggest Reliability improvements for Process.",
+        "Which critical-path activities are fully manual?",
+        "What Requirement Engineering gaps exist in People?",
     ]
     for ex in examples:
-        st.caption(f"• {ex}")
-
-# ---------------------------------------------------------------------------
-# Main chat area
-# ---------------------------------------------------------------------------
-st.title("🔷 advanced-QODE — GenAI Diagram Assistant")
-
-mode_badge = "📊 As-Is Mode  |  🧠 Principles Mode"
-st.caption(f"Powered by Graph-RAG · LangGraph · Langfuse · {mode_badge}")
-
-# ---------------------------------------------------------------------------
-# Diagram rendering helper
-# ---------------------------------------------------------------------------
-def _render_diagram(path: str, dtype: str) -> None:
-    p = Path(path)
-    if not p.exists():
-        st.warning(f"⚠️ Diagram file not found: `{path}`")
-        return
-
-    if p.suffix.lower() == ".png":
-        st.image(str(p), caption=f"{dtype.title()} Diagram", use_container_width=True)
-        with open(str(p), "rb") as f:
-            st.download_button(
-                label=f"⬇️ Download {dtype.title()} Diagram (PNG)",
-                data=f.read(),
-                file_name=p.name,
-                mime="image/png",
-            )
-    else:
-        dot_text = p.read_text(encoding="utf-8", errors="replace")
-        st.code(dot_text, language="dot")
-        st.download_button(
-            label=f"⬇️ Download {dtype.title()} Diagram (DOT)",
-            data=dot_text,
-            file_name=p.name,
-            mime="text/plain",
-        )
-        st.info(
-            "💡 Graphviz not installed locally. "
-            "Paste the DOT source into [Graphviz Online](https://dreampuf.github.io/GraphvizOnline/) "
-            "or [Lucidchart](https://www.lucidchart.com) to visualise."
+        st.markdown(
+            f'<div style="font-size:0.78rem;color:#8b949e;padding:2px 0;">'
+            f'<span style="color:#484f58;">›</span> {ex}</div>',
+            unsafe_allow_html=True,
         )
 
+# ---------------------------------------------------------------------------
+# ── MAIN AREA ────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+render_header()
 
-# Display welcome if no history
+# Welcome card (first run only)
 if not st.session_state.messages:
-    with st.chat_message("assistant"):
-        st.markdown(_WELCOME)
+    render_welcome()
 
-# Render existing conversation
+# ---------------------------------------------------------------------------
+# Render existing conversation history
+# ---------------------------------------------------------------------------
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-        if msg["role"] == "assistant":
+    if msg["role"] == "user":
+        with st.chat_message("user"):
+            render_user_bubble(msg["content"])
+    else:
+        with st.chat_message("assistant"):
+            render_assistant_bubble(msg["content"], msg.get("mode", "principles"))
+            render_mode_badge(msg.get("mode", "principles"))
+            render_eval_bar(msg.get("eval_score"))
             if msg.get("diagram_path"):
-                _render_diagram(msg["diagram_path"], msg.get("diagram_type", ""))
-            if msg.get("mode"):
-                badge = "📊 As-Is (no LLM)" if msg["mode"] == "asis" else "🧠 Principles (LLM+RAG)"
-                st.caption(f"Mode: {badge}")
-            if msg.get("eval_score") is not None:
-                st.caption(f"Eval score: {msg['eval_score']:.2f}")
+                render_diagram_card(msg["diagram_path"], msg.get("diagram_type", ""))
 
 # ---------------------------------------------------------------------------
 # Chat input
@@ -270,79 +293,78 @@ user_input = st.chat_input(
 prompt = quick_input or user_input
 
 if prompt:
-    # Enrich prompt with selected principle/discipline if set
-    enriched_prompt = prompt
+    # Enrich prompt with active principle/discipline lens
+    enriched = prompt
     if st.session_state.selected_principle:
-        enriched_prompt = (
+        enriched = (
             f"[{st.session_state.selected_principle}] "
             f"[Discipline: {st.session_state.selected_discipline}] "
             f"{prompt}"
         )
 
+    # Render user bubble immediately
     with st.chat_message("user"):
-        st.markdown(prompt)
+        render_user_bubble(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     history = st.session_state.messages[:-1]
+    is_asis = detect_asis_request(enriched)
+    intent  = detect_intent(enriched)
+
+    status_msg = (
+        f"📊 Generating As-Is {intent.title()} diagram …"
+        if is_asis and intent != "general"
+        else "🧠 Reasoning with Graph-RAG + LLM …"
+    )
 
     with st.chat_message("assistant"):
-        is_asis = detect_asis_request(enriched_prompt)
-        intent = detect_intent(enriched_prompt)
-
-        status_msg = (
-            f"📊 Generating As-Is {intent.title()} diagram (no LLM) …"
-            if is_asis and intent != "general"
-            else "🧠 Reasoning with Graph-RAG + LLM …"
-        )
-
         with st.status(status_msg, expanded=False):
             try:
                 result = run_chain(
-                    user_message=enriched_prompt,
+                    user_message=enriched,
                     history=history,
                     excel_path=excel_path,
                     chroma_path=_CHROMA_PATH,
                     graph_path=_GRAPH_PATH,
-                    stream=not is_asis,  # As-Is is fast/sync; principles path streams
+                    stream=not is_asis,
                 )
-            except Exception as chain_err:
+            except Exception as exc:
                 result = {
-                    "text": f"❌ An error occurred: {chain_err}",
-                    "stream": None,
+                    "text":         f"❌ An error occurred: {exc}",
+                    "stream":       None,
                     "diagram_path": None,
                     "diagram_type": None,
-                    "mode": "error",
-                    "eval_score": None,
+                    "mode":         "error",
+                    "eval_score":   None,
                 }
 
+        # Resolve reply text
         if result.get("stream"):
             full_reply = st.write_stream(result["stream"])
         else:
             full_reply = result.get("text", "")
-            st.markdown(full_reply)
+            render_assistant_bubble(full_reply, result.get("mode", "principles"))
 
+        mode         = result.get("mode", "principles")
         diagram_path = result.get("diagram_path")
         diagram_type = result.get("diagram_type") or ""
-        mode = result.get("mode", "principles")
-        eval_score = result.get("eval_score")
+        eval_score   = result.get("eval_score")
+
+        render_mode_badge(mode)
+        render_eval_bar(eval_score)
 
         if diagram_path:
-            _render_diagram(diagram_path, diagram_type)
+            render_diagram_card(diagram_path, diagram_type)
 
-        badge = "📊 As-Is (no LLM)" if mode == "asis" else "🧠 Principles (LLM+RAG)"
-        st.caption(f"Mode: {badge}")
-        if eval_score is not None:
-            st.caption(f"Eval score: {eval_score:.2f}")
-
-    assistant_msg: dict[str, Any] = {
-        "role": "assistant",
-        "content": full_reply or "",
+    # Persist to session state
+    st.session_state.messages.append({
+        "role":         "assistant",
+        "content":      full_reply or "",
         "diagram_path": diagram_path,
         "diagram_type": diagram_type,
-        "mode": mode,
-        "eval_score": eval_score,
-    }
-    st.session_state.messages.append(assistant_msg)
+        "mode":         mode,
+        "eval_score":   eval_score,
+    })
 
     if diagram_path and diagram_type:
         st.session_state.diagram_paths[diagram_type] = diagram_path
