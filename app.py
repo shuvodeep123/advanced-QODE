@@ -67,30 +67,14 @@ _CHROMA_PATH = "./chroma_db"
 _GRAPH_PATH  = DEFAULT_GRAPH_PATH
 _SUPPORTED   = ["xlsm", "xlsx", "docx", "pdf", "txt"]
 
-_PRINCIPLES = [
-    "1. Requirement Engineering",
-    "2. Code / Data Engineering",
-    "3. Quality Engineering",
-    "4. Build & Release Engineering",
-    "5. Environment Engineering",
-    "6. Service Ops",
-    "7. Security",
-    "8. Reliability",
-    "9. Ontology Engineering",
-]
-_DISCIPLINES = ["People", "Process", "Technology"]
-
 # ---------------------------------------------------------------------------
 # Session-state initialisation
 # ---------------------------------------------------------------------------
 _DEFAULTS: dict[str, Any] = {
-    "messages":           [],    # list[dict] — chat history
-    "uploaded_files":     {},    # filename → tmp path
-    "ingested":           False,
-    "diagram_paths":      {},    # dtype → latest diagram path
-    "selected_principle": None,
-    "selected_discipline": "Technology",
-    "msg_count":          0,     # for sidebar stat
+    "messages":       [],    # list[dict] — chat history
+    "uploaded_files": {},    # filename → tmp path
+    "ingested":       False,
+    "diagram_paths":  {},    # dtype → latest diagram path
 }
 for _k, _v in _DEFAULTS.items():
     if _k not in st.session_state:
@@ -183,37 +167,7 @@ with st.sidebar:
 
     st.divider()
 
-    # ── Engineering Principles selector ───────────────────────────────────
-    render_sidebar_section("⚙️ Engineering Principles")
-    selected_principle = st.selectbox(
-        "Principle",
-        options=["— none —"] + _PRINCIPLES,
-        index=0,
-        help="Prefix your question with this principle for targeted LLM reasoning.",
-        label_visibility="collapsed",
-    )
-    selected_discipline = st.radio(
-        "Discipline",
-        options=_DISCIPLINES,
-        horizontal=True,
-        index=_DISCIPLINES.index(st.session_state.selected_discipline),
-    )
-    st.session_state.selected_principle = (
-        None if selected_principle == "— none —" else selected_principle
-    )
-    st.session_state.selected_discipline = selected_discipline
-
-    if selected_principle != "— none —":
-        st.markdown(
-            f'<div style="font-size:0.75rem;color:#8b5cf6;padding:4px 0;">'
-            f'🔗 Lens: <strong>{selected_principle}</strong> × <strong>{selected_discipline}</strong>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-
-    st.divider()
-
-    # ── Quick-action buttons ───────────────────────────────────────────────
+    # ── As-Is quick-action buttons ─────────────────────────────────────────
     render_sidebar_section("⚡ As-Is Diagrams")
 
     def _qprompt(p: str) -> None:
@@ -221,14 +175,28 @@ with st.sidebar:
 
     c1, c2, c3 = st.columns(3)
     with c1:
-        if st.button("📊\nProcess", use_container_width=True):
+        if st.button("📊\nProcess", use_container_width=True, key="asis_process"):
             _qprompt("Create an As-Is Process Network Architecture diagram.")
     with c2:
-        if st.button("👥\nPeople", use_container_width=True):
+        if st.button("👥\nPeople", use_container_width=True, key="asis_people"):
             _qprompt("Create an As-Is People Architecture diagram.")
     with c3:
-        if st.button("🔧\nTech", use_container_width=True):
+        if st.button("🔧\nTech", use_container_width=True, key="asis_tech"):
             _qprompt("Create an As-Is Technology Architecture diagram.")
+
+    # ── To-Be quick-action buttons ─────────────────────────────────────────
+    render_sidebar_section("🔮 To-Be Diagrams")
+
+    t1, t2, t3 = st.columns(3)
+    with t1:
+        if st.button("📊\nProcess", use_container_width=True, key="tobe_process"):
+            _qprompt("Create a To-Be Process Network Architecture diagram with improvements.")
+    with t2:
+        if st.button("👥\nPeople", use_container_width=True, key="tobe_people"):
+            _qprompt("Create a To-Be People Architecture diagram with recommended role changes.")
+    with t3:
+        if st.button("🔧\nTech", use_container_width=True, key="tobe_tech"):
+            _qprompt("Create a To-Be Technology Architecture diagram with recommended toolchain improvements.")
 
     st.divider()
 
@@ -246,10 +214,10 @@ with st.sidebar:
     examples = [
         "Create an As-Is People Architecture.",
         "Create an As-Is Technology Architecture.",
+        "Create a To-Be Process Architecture.",
+        "Create a To-Be Technology Architecture.",
         "How can I improve Security for my Technology?",
-        "Suggest Reliability improvements for Process.",
         "Which critical-path activities are fully manual?",
-        "What Requirement Engineering gaps exist in People?",
     ]
     for ex in examples:
         st.markdown(
@@ -287,33 +255,31 @@ for msg in st.session_state.messages:
 # ---------------------------------------------------------------------------
 quick_input: str | None = st.session_state.pop("_quick_input", None)
 user_input = st.chat_input(
-    "Ask about As-Is Architecture or Engineering Principle improvements …",
+    "Ask about As-Is / To-Be Architecture or DevSecOps improvements …",
     key="chat_input",
 )
 prompt = quick_input or user_input
 
 if prompt:
-    # Enrich prompt with active principle/discipline lens
-    enriched = prompt
-    if st.session_state.selected_principle:
-        enriched = (
-            f"[{st.session_state.selected_principle}] "
-            f"[Discipline: {st.session_state.selected_discipline}] "
-            f"{prompt}"
-        )
-
     # Render user bubble immediately
     with st.chat_message("user"):
         render_user_bubble(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     history = st.session_state.messages[:-1]
-    is_asis = detect_asis_request(enriched)
-    intent  = detect_intent(enriched)
+    is_asis = detect_asis_request(prompt)
+    intent  = detect_intent(prompt)
+
+    # Detect To-Be mode (LLM path even if "generate" keyword present)
+    is_tobe = any(kw in prompt.lower() for kw in ["to-be", "to be", "tobe", "target state", "future state"])
+    if is_tobe:
+        is_asis = False   # To-Be always uses LLM path
 
     status_msg = (
-        f"📊 Generating As-Is {intent.title()} diagram …"
+        f"📊 Generating As-Is {intent.title()} diagram (Mermaid/PlantUML) …"
         if is_asis and intent != "general"
+        else f"🔮 Generating To-Be {intent.title()} diagram via LLM + Graph-RAG …"
+        if is_tobe and intent != "general"
         else "🧠 Reasoning with Graph-RAG + LLM …"
     )
 
@@ -321,7 +287,7 @@ if prompt:
         with st.status(status_msg, expanded=False):
             try:
                 result = run_chain(
-                    user_message=enriched,
+                    user_message=prompt,
                     history=history,
                     excel_path=excel_path,
                     chroma_path=_CHROMA_PATH,

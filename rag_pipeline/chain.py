@@ -88,9 +88,19 @@ def detect_intent(query: str) -> str:
     return best if scores[best] > 0 else "general"
 
 
+_TOBE_KEYWORDS = ["to-be", "to be", "tobe", "target state", "future state", "target architecture"]
+
+
 def detect_asis_request(query: str) -> bool:
-    """Return True when the query is asking for an As-Is architecture diagram."""
+    """Return True when the query is asking for an As-Is architecture diagram.
+
+    Explicitly returns False for To-Be requests even if generate keywords present,
+    since To-Be always routes through the LLM path.
+    """
     lower = query.lower()
+    # To-Be always takes LLM path — never As-Is
+    if any(kw in lower for kw in _TOBE_KEYWORDS):
+        return False
     return any(kw in lower for kw in _ASIS_KEYWORDS)
 
 
@@ -174,10 +184,12 @@ def _node_asis(state: AgentState) -> AgentState:
 
     # Build a descriptive reply without calling an LLM
     if diagram_path:
+        from pathlib import Path as _Path
+        fmt = _Path(diagram_path).suffix.upper().lstrip(".") if diagram_path else "DOT"
         state["reply_text"] = (
             f"✅ **As-Is {intent.title()} Architecture** generated from your questionnaire.\n\n"
-            f"The diagram was produced directly by the `Generate_{intent.title()}_*_Diagram.py` "
-            f"module — no LLM involved. Download or view it below."
+            f"Rendered as **{fmt}** directly by the `Generate_{intent.title()}_*_Diagram.py` "
+            f"module — no LLM involved. View or download the diagram below."
         )
     else:
         state["reply_text"] = (
