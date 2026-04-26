@@ -52,11 +52,11 @@ else
 fi
 
 # ── Check critical env vars ───────────────────────────────────
-if [[ -z "${KODEKLOUD_API_KEY:-}" ]]; then
-  echo -e "  ${YEL}⚠${RST}  KODEKLOUD_API_KEY not set — LLM calls will fail"
-  echo -e "     Set it in .env or export KODEKLOUD_API_KEY=<your-key>"
+if [[ -z "${HF_TOKEN:-}" ]]; then
+  echo -e "  ${YEL}⚠${RST}  HF_TOKEN not set — LLM calls will fail"
+  echo -e "     Set it in .env or export HF_TOKEN=<your-token>"
 else
-  echo -e "  ${GRN}✓${RST} KODEKLOUD_API_KEY detected"
+  echo -e "  ${GRN}✓${RST} HF_TOKEN detected"
 fi
 
 if [[ -n "${LANGFUSE_SECRET_KEY:-}" ]] && [[ -n "${LANGFUSE_PUBLIC_KEY:-}" ]]; then

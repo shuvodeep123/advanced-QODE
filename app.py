@@ -21,6 +21,7 @@ Run
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,7 @@ from ui.components import (
     render_diagram_card,
     render_sidebar_section,
     render_info_card,
+    render_token_counter,
 )
 
 inject_css()
@@ -59,6 +61,7 @@ from rag_pipeline.chain import run_chain, detect_intent, detect_asis_request
 from rag_pipeline.ingest import ingest_all
 from rag_pipeline.graph_builder import DEFAULT_GRAPH_PATH
 from rag_pipeline.graph_retriever import invalidate_cache
+from rag_pipeline.token_counter import get_usage, reset as reset_token_counter, DEFAULT_BUDGET
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -68,17 +71,62 @@ _GRAPH_PATH  = DEFAULT_GRAPH_PATH
 _SUPPORTED   = ["xlsm", "xlsx", "docx", "pdf", "txt"]
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+import re as _re
+
+def _strip_mermaid_fences(text: str) -> str:
+    """Remove ```mermaid ... ``` code fences from the reply text.
+
+    The diagram itself is rendered separately via render_diagram_card, so the
+    raw source should not appear in the chat bubble.
+    """
+    # Remove fenced ```mermaid blocks (possibly with trailing whitespace)
+    cleaned = _re.sub(
+        r"```mermaid\s*\n.*?```",
+        "",
+        text,
+        flags=_re.DOTALL | _re.IGNORECASE,
+    )
+    # Collapse multiple blank lines left by the removal
+    cleaned = _re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+# ---------------------------------------------------------------------------
 # Session-state initialisation
 # ---------------------------------------------------------------------------
 _DEFAULTS: dict[str, Any] = {
     "messages":       [],    # list[dict] — chat history
     "uploaded_files": {},    # filename → tmp path
+    "excel_path":     None,  # persisted questionnaire path across reruns
     "ingested":       False,
     "diagram_paths":  {},    # dtype → latest diagram path
+    # Token budget — read from env so it can be overridden per deployment
+    "token_budget":   int(os.environ.get("TOKEN_BUDGET", "248000")),
+    # Token usage snapshot — refreshed from token_counter after each LLM call
+    "token_prompt":       0,
+    "token_completion":   0,
+    "token_total":        0,
+    "token_call_count":   0,
+    "token_by_model":     {},
 }
 for _k, _v in _DEFAULTS.items():
     if _k not in st.session_state:
         st.session_state[_k] = _v
+
+
+def _sync_token_state() -> None:
+    """Copy the in-process token counter into Streamlit session state.
+
+    Calling this after every chain execution ensures the sidebar Token Count
+    section reflects the latest usage without requiring a full page rerun.
+    """
+    usage = get_usage()
+    st.session_state.token_prompt       = usage.prompt_tokens
+    st.session_state.token_completion   = usage.completion_tokens
+    st.session_state.token_total        = usage.total_tokens
+    st.session_state.token_call_count   = usage.call_count
+    st.session_state.token_by_model     = usage.by_model
 
 # ---------------------------------------------------------------------------
 # ── SIDEBAR ─────────────────────────────────────────────────────────────────
@@ -120,7 +168,24 @@ with st.sidebar:
 
     st.divider()
 
-    # ── File uploader ──────────────────────────────────────────────────────
+    # ── Token Count ───────────────────────────────────────────────────────
+    render_sidebar_section("🔢 Token Count")
+    render_token_counter(
+        prompt_tokens=st.session_state.token_prompt,
+        completion_tokens=st.session_state.token_completion,
+        total_tokens=st.session_state.token_total,
+        budget=st.session_state.token_budget,
+        call_count=st.session_state.token_call_count,
+        by_model=st.session_state.token_by_model,
+    )
+    if st.button("↺ Reset Token Counter", use_container_width=True, key="reset_tokens"):
+        reset_token_counter()
+        _sync_token_state()
+        st.rerun()
+
+    st.divider()
+
+    # ── File uploader ─────────────────────────────────────────────────────
     render_sidebar_section("📂 Upload Documents")
     uploaded_files = st.file_uploader(
         "xlsm · xlsx · docx · pdf · txt",
@@ -141,7 +206,7 @@ with st.sidebar:
 
         st.success(f"✅ {len(st.session_state.uploaded_files)} file(s) ready")
 
-    # ── Resolve paths ──────────────────────────────────────────────────────
+    # ── Resolve paths ──────────────────────────────────────────────
     excel_path: str | None = None
     extra_docs: list[str] = []
     for fname, fpath in st.session_state.uploaded_files.items():
@@ -149,6 +214,21 @@ with st.sidebar:
             excel_path = fpath
         else:
             extra_docs.append(fpath)
+
+    # Persist resolved excel_path so it survives across reruns and page refreshes
+    # without the user needing to re-upload the file.
+    if excel_path:
+        st.session_state.excel_path = excel_path
+    elif st.session_state.get("excel_path"):
+        # Re-use previously uploaded file if the upload widget was cleared
+        prev = st.session_state.excel_path
+        if Path(prev).exists():
+            excel_path = prev
+            st.info(
+                f"📁 Using previously uploaded questionnaire: "
+                f"`{Path(prev).name}`",
+                icon="📂",
+            )
 
     # ── Ingest ────────────────────────────────────────────────────────────
     if not st.session_state.ingested:
@@ -238,7 +318,7 @@ if not st.session_state.messages:
 # ---------------------------------------------------------------------------
 # Render existing conversation history
 # ---------------------------------------------------------------------------
-for msg in st.session_state.messages:
+for _msg_idx, msg in enumerate(st.session_state.messages):
     if msg["role"] == "user":
         with st.chat_message("user"):
             render_user_bubble(msg["content"])
@@ -248,7 +328,7 @@ for msg in st.session_state.messages:
             render_mode_badge(msg.get("mode", "principles"))
             render_eval_bar(msg.get("eval_score"))
             if msg.get("diagram_path"):
-                render_diagram_card(msg["diagram_path"], msg.get("diagram_type", ""))
+                render_diagram_card(msg["diagram_path"], msg.get("diagram_type", ""), key=f"hist_{_msg_idx}")
 
 # ---------------------------------------------------------------------------
 # Chat input
@@ -286,13 +366,19 @@ if prompt:
     with st.chat_message("assistant"):
         with st.status(status_msg, expanded=False):
             try:
+                # Stream only for general (non-diagram) LLM questions.
+                # For diagram requests the full reply must be available so the
+                # Mermaid block can be extracted, saved, and stripped from the
+                # chat text before display — streaming would expose raw fences.
+                wants_diagram = (intent != "general")
+                use_stream = (not is_asis) and (not wants_diagram)
                 result = run_chain(
                     user_message=prompt,
                     history=history,
                     excel_path=excel_path,
                     chroma_path=_CHROMA_PATH,
                     graph_path=_GRAPH_PATH,
-                    stream=not is_asis,
+                    stream=use_stream,
                 )
             except Exception as exc:
                 result = {
@@ -304,12 +390,18 @@ if prompt:
                     "eval_score":   None,
                 }
 
+        # Sync token usage into session state immediately after chain execution
+        _sync_token_state()
+
         # Resolve reply text
         if result.get("stream"):
             full_reply = st.write_stream(result["stream"])
         else:
             full_reply = result.get("text", "")
-            render_assistant_bubble(full_reply, result.get("mode", "principles"))
+            # Strip any raw Mermaid fence blocks before showing in the chat
+            # (the diagram is rendered separately via render_diagram_card)
+            display_text = _strip_mermaid_fences(full_reply)
+            render_assistant_bubble(display_text, result.get("mode", "principles"))
 
         mode         = result.get("mode", "principles")
         diagram_path = result.get("diagram_path")
@@ -320,7 +412,7 @@ if prompt:
         render_eval_bar(eval_score)
 
         if diagram_path:
-            render_diagram_card(diagram_path, diagram_type)
+            render_diagram_card(diagram_path, diagram_type, key="live")
 
     # Persist to session state
     st.session_state.messages.append({

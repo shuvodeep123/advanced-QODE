@@ -1,6 +1,7 @@
 # ── Core RAG pipeline ────────────────────────────────────────────────────────
 chromadb>=0.5.0               # Vector database (persistent)
 openai>=1.0.0                 # OpenAI-compatible LLM client (KodeKloud)
+python-dotenv>=1.0.0          # Load .env into os.environ
 sentence-transformers>=2.7.0  # Embedding model (all-MiniLM-L6-v2)
 networkx>=3.3                 # Knowledge graph (QODEKnowledgeGraph)
 

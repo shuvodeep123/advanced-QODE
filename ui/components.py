@@ -203,7 +203,7 @@ def render_eval_bar(score: float | None) -> None:
 # Mermaid inline renderer
 # ---------------------------------------------------------------------------
 
-def render_mermaid(mmd_text: str, dtype: str) -> None:
+def render_mermaid(mmd_text: str, dtype: str, key: str = "") -> None:
     """Render a Mermaid diagram inline using mermaid.js via CDN."""
     import html as _html
     safe_mmd = _html.escape(mmd_text)
@@ -250,6 +250,7 @@ def render_mermaid(mmd_text: str, dtype: str) -> None:
             file_name=f"{dtype}_diagram.mmd",
             mime="text/plain",
             use_container_width=True,
+            key=f"dl_mmd_{key}",
         )
     with col2:
         import urllib.parse
@@ -273,7 +274,7 @@ def _b64(text: str) -> str:
 # PlantUML renderer
 # ---------------------------------------------------------------------------
 
-def render_plantuml(puml_text: str, dtype: str) -> None:
+def render_plantuml(puml_text: str, dtype: str, key: str = "") -> None:
     """Render a PlantUML diagram via the public PlantUML server."""
     import base64
     import zlib
@@ -326,6 +327,7 @@ def render_plantuml(puml_text: str, dtype: str) -> None:
                 file_name=f"{dtype}_diagram.puml",
                 mime="text/plain",
                 use_container_width=True,
+                key=f"dl_puml_{key}",
             )
         with col2:
             st.markdown(
@@ -342,10 +344,81 @@ def render_plantuml(puml_text: str, dtype: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# draw.io renderer
+# ---------------------------------------------------------------------------
+
+def render_drawio(drawio_text: str, dtype: str, key: str = "") -> None:
+    """Render a draw.io diagram — provides download + open-in-diagrams.net link.
+
+    draw.io XML cannot be rendered inline in a browser without the draw.io
+    embed script (requires iframe + CORS). We therefore:
+    1. Show a styled download button for the ``.drawio`` file.
+    2. Provide a one-click link to open the diagram in diagrams.net.
+    3. Show the raw XML in a collapsible expander for inspection.
+
+    To wire up a custom draw.io MCP server, replace the ``diagrams_url`` below
+    with your MCP endpoint and pass the XML as a POST body.
+    """
+    import base64
+
+    title = f"{dtype.title()} Architecture Diagram"
+    # diagrams.net can open inline XML via the ?xml= query param (URL-safe base64)
+    b64_xml = base64.urlsafe_b64encode(drawio_text.encode()).decode()
+    diagrams_url = f"https://app.diagrams.net/?xml={b64_xml}"
+
+    st.markdown(
+        f"""
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <span class="diagram-card-title">📄 {title}</span>
+            <span style="font-size:0.7rem;color:#f59e0b;font-weight:600;">
+              ◈ draw.io
+            </span>
+          </div>
+          <div style="padding:12px;background:rgba(245,158,11,0.08);
+                border-radius:8px;border:1px solid rgba(245,158,11,0.25);
+                font-size:0.8rem;color:#e5c07b;">
+            💡 draw.io XML generated — use the buttons below to open or download.
+            <br>
+            <span style="font-size:0.72rem;color:#8b949e;">
+              To use a custom MCP server, replace the diagrams.net URL in
+              <code>ui/components.py &gt; render_drawio()</code>.
+            </span>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        st.download_button(
+            label="⬇️ Download draw.io (.drawio)",
+            data=drawio_text,
+            file_name=f"{dtype}_diagram.drawio",
+            mime="application/xml",
+            use_container_width=True,
+            key=f"dl_drawio_{key}",
+        )
+    with col2:
+        st.markdown(
+            f'<a href="{diagrams_url}" target="_blank" '
+            f'style="display:block;text-align:center;background:rgba(245,158,11,0.1);'
+            f'border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:6px 0;'
+            f'font-size:0.8125rem;color:#f59e0b;text-decoration:none;">'
+            f'🔗 Open in diagrams.net</a>',
+            unsafe_allow_html=True,
+        )
+
+    with st.expander("🔧 View draw.io XML source"):
+        st.code(drawio_text, language="xml")
+
+
+# ---------------------------------------------------------------------------
 # Diagram card — auto-detects format
 # ---------------------------------------------------------------------------
 
-def render_diagram_card(path: str, dtype: str) -> None:
+def render_diagram_card(path: str, dtype: str, key: str = "") -> None:
     """Render a framed diagram card — auto-detects .png / .mmd / .puml / .dot."""
     p = Path(path)
     if not p.exists():
@@ -354,6 +427,7 @@ def render_diagram_card(path: str, dtype: str) -> None:
 
     ext = p.suffix.lower()
     text = p.read_text(encoding="utf-8", errors="replace") if ext != ".png" else ""
+    _key = key or p.stem
 
     if ext == ".png":
         st.markdown(
@@ -370,13 +444,17 @@ def render_diagram_card(path: str, dtype: str) -> None:
                 file_name=p.name,
                 mime="image/png",
                 use_container_width=True,
+                key=f"dl_png_{_key}",
             )
 
     elif ext == ".mmd":
-        render_mermaid(text, dtype)
+        render_mermaid(text, dtype, key=_key)
 
     elif ext == ".puml":
-        render_plantuml(text, dtype)
+        render_plantuml(text, dtype, key=_key)
+
+    elif ext in (".drawio", ".xml"):
+        render_drawio(text, dtype, key=_key)
 
     else:
         # Raw DOT fallback → convert on-the-fly to Mermaid for display
@@ -448,3 +526,151 @@ def render_info_card(label: str, value: str, color: str = "#f0f6fc") -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+# ---------------------------------------------------------------------------
+# Token counter widget
+# ---------------------------------------------------------------------------
+
+def render_token_counter(
+    prompt_tokens: int,
+    completion_tokens: int,
+    total_tokens: int,
+    budget: int,
+    call_count: int,
+    by_model: dict | None = None,
+) -> None:
+    """Render a real-time token usage panel in the sidebar.
+
+    Shows:
+    - A segmented arc gauge: green → amber → red as usage climbs
+    - Prompt / completion breakdown
+    - Per-model breakdown (collapsible)
+    - Number of LLM calls this session
+    """
+    if budget <= 0:
+        budget = 1  # avoid divide-by-zero
+
+    pct = min(100.0, total_tokens / budget * 100)
+
+    # ── Arc gauge colour: green < 60 %, amber 60–85 %, red > 85 % ──────
+    if pct < 60:
+        bar_color = "#10b981"   # emerald
+        text_color = "#10b981"
+    elif pct < 85:
+        bar_color = "#f59e0b"   # amber
+        text_color = "#f59e0b"
+    else:
+        bar_color = "#ef4444"   # red
+        text_color = "#ef4444"
+
+    # Dash-array for a semi-circle arc: circumference of r=40 circle ≈ 251.2
+    # We use a 75 % arc (270°) = 0.75 × 251.2 ≈ 188.4 total dash
+    arc_total   = 188.4
+    arc_used    = arc_total * pct / 100
+    arc_remain  = arc_total - arc_used
+
+    # Rotation: start the arc at 7 o'clock (225° from top = 135° CSS rotation)
+    rotate_deg  = 135
+
+    budget_k    = f"{budget // 1000}k" if budget >= 1000 else str(budget)
+    total_k     = (
+        f"{total_tokens / 1000:.1f}k" if total_tokens >= 1000
+        else str(total_tokens)
+    )
+
+    st.markdown(
+        f"""
+        <div style="display:flex;flex-direction:column;align-items:center;
+                    padding:8px 0 4px;">
+
+          <!-- Arc gauge via SVG -->
+          <svg width="110" height="72" viewBox="0 0 110 72"
+               style="overflow:visible;margin-bottom:2px;">
+            <!-- Track arc (dark) -->
+            <circle cx="55" cy="55" r="40"
+              fill="none"
+              stroke="#21262d"
+              stroke-width="10"
+              stroke-dasharray="{arc_total:.1f} {251.2 - arc_total:.1f}"
+              stroke-dashoffset="0"
+              stroke-linecap="round"
+              transform="rotate({rotate_deg} 55 55)"/>
+            <!-- Used arc (colour) -->
+            <circle cx="55" cy="55" r="40"
+              fill="none"
+              stroke="{bar_color}"
+              stroke-width="10"
+              stroke-dasharray="{arc_used:.1f} {251.2 - arc_used:.1f}"
+              stroke-dashoffset="0"
+              stroke-linecap="round"
+              transform="rotate({rotate_deg} 55 55)"/>
+            <!-- Centre label -->
+            <text x="55" y="52" text-anchor="middle"
+              font-size="14" font-weight="700"
+              fill="{text_color}" font-family="Inter,sans-serif">
+              {pct:.1f}%
+            </text>
+            <text x="55" y="65" text-anchor="middle"
+              font-size="8" fill="#8b949e" font-family="Inter,sans-serif">
+              used
+            </text>
+          </svg>
+
+          <!-- Token totals row -->
+          <div style="font-size:0.72rem;color:#8b949e;margin-bottom:6px;">
+            <span style="color:{text_color};font-weight:600;">{total_k}</span>
+            &nbsp;/&nbsp;{budget_k} tokens
+          </div>
+
+          <!-- Prompt / completion breakdown -->
+          <div style="width:100%;display:flex;gap:6px;margin-bottom:4px;">
+            <div style="flex:1;background:#161b22;border:1px solid #21262d;
+                        border-radius:6px;padding:5px 6px;text-align:center;">
+              <div style="font-size:0.65rem;color:#8b949e;text-transform:uppercase;
+                          letter-spacing:0.05em;">Prompt</div>
+              <div style="font-size:0.78rem;font-weight:600;color:#3b82f6;">
+                {prompt_tokens:,}
+              </div>
+            </div>
+            <div style="flex:1;background:#161b22;border:1px solid #21262d;
+                        border-radius:6px;padding:5px 6px;text-align:center;">
+              <div style="font-size:0.65rem;color:#8b949e;text-transform:uppercase;
+                          letter-spacing:0.05em;">Completion</div>
+              <div style="font-size:0.78rem;font-weight:600;color:#8b5cf6;">
+                {completion_tokens:,}
+              </div>
+            </div>
+            <div style="flex:1;background:#161b22;border:1px solid #21262d;
+                        border-radius:6px;padding:5px 6px;text-align:center;">
+              <div style="font-size:0.65rem;color:#8b949e;text-transform:uppercase;
+                          letter-spacing:0.05em;">Calls</div>
+              <div style="font-size:0.78rem;font-weight:600;color:#10b981;">
+                {call_count}
+              </div>
+            </div>
+          </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Per-model breakdown (collapsible, only show when multiple models used)
+    if by_model:
+        with st.expander("📊 By model", expanded=False):
+            for mname, mtokens in sorted(
+                by_model.items(), key=lambda x: -x[1]
+            ):
+                mpct = min(100, int(mtokens / budget * 100))
+                st.markdown(
+                    f'<div style="font-size:0.72rem;display:flex;'
+                    f'justify-content:space-between;padding:2px 0;">'
+                    f'<span style="color:#8b949e;overflow:hidden;'
+                    f'text-overflow:ellipsis;max-width:60%;">{mname}</span>'
+                    f'<span style="color:#f0f6fc;font-weight:600;">'
+                    f'{mtokens:,} <span style="color:#484f58;">({mpct}%)</span>'
+                    f'</span></div>',
+                    unsafe_allow_html=True,
+                )
+

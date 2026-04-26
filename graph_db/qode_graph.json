@@ -1,0 +1,1901 @@
+{
+  "directed": true,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "node_type": "pillar",
+      "label": "Requirements & Planning",
+      "pillar_num": 1,
+      "diagram_type": "process",
+      "summary": "Covers user story creation, backlog grooming, sprint planning, and requirement traceability.",
+      "id": "pillar_1"
+    },
+    {
+      "node_type": "role",
+      "label": "Product Owner",
+      "id": "role_product_owner"
+    },
+    {
+      "node_type": "role",
+      "label": "Business Analyst",
+      "id": "role_business_analyst"
+    },
+    {
+      "node_type": "tool",
+      "label": "Jira",
+      "id": "tool_jira"
+    },
+    {
+      "node_type": "tool",
+      "label": "Confluence",
+      "id": "tool_confluence"
+    },
+    {
+      "node_type": "tool",
+      "label": "Azure DevOps Boards",
+      "id": "tool_azure_devops_boards"
+    },
+    {
+      "node_type": "pillar",
+      "label": "Design & Architecture",
+      "pillar_num": 2,
+      "diagram_type": "people",
+      "summary": "Covers solution design, architecture review, threat modelling, and design approval gates.",
+      "id": "pillar_2"
+    },
+    {
+      "node_type": "role",
+      "label": "Architect",
+      "id": "role_architect"
+    },
+    {
+      "node_type": "role",
+      "label": "Tech Lead",
+      "id": "role_tech_lead"
+    },
+    {
+      "node_type": "tool",
+      "label": "draw.io",
+      "id": "tool_draw_io"
+    },
+    {
+      "node_type": "tool",
+      "label": "Lucidchart",
+      "id": "tool_lucidchart"
+    },
+    {
+      "node_type": "tool",
+      "label": "Enterprise Architect",
+      "id": "tool_enterprise_architect"
+    },
+    {
+      "node_type": "pillar",
+      "label": "Development & Code Quality",
+      "pillar_num": 3,
+      "diagram_type": "technology",
+      "summary": "Covers coding standards, peer review, static analysis, and unit testing.",
+      "id": "pillar_3"
+    },
+    {
+      "node_type": "role",
+      "label": "Developer",
+      "id": "role_developer"
+    },
+    {
+      "node_type": "role",
+      "label": "QA",
+      "id": "role_qa"
+    },
+    {
+      "node_type": "tool",
+      "label": "SonarQube",
+      "id": "tool_sonarqube"
+    },
+    {
+      "node_type": "tool",
+      "label": "GitHub",
+      "id": "tool_github"
+    },
+    {
+      "node_type": "tool",
+      "label": "GitLab",
+      "id": "tool_gitlab"
+    },
+    {
+      "node_type": "tool",
+      "label": "Bitbucket",
+      "id": "tool_bitbucket"
+    },
+    {
+      "node_type": "pillar",
+      "label": "Continuous Integration",
+      "pillar_num": 4,
+      "diagram_type": "technology",
+      "summary": "Covers build automation, automated unit/integration tests, and artefact management.",
+      "id": "pillar_4"
+    },
+    {
+      "node_type": "role",
+      "label": "DevOps Lead",
+      "id": "role_devops_lead"
+    },
+    {
+      "node_type": "tool",
+      "label": "Jenkins",
+      "id": "tool_jenkins"
+    },
+    {
+      "node_type": "tool",
+      "label": "GitHub Actions",
+      "id": "tool_github_actions"
+    },
+    {
+      "node_type": "tool",
+      "label": "CircleCI",
+      "id": "tool_circleci"
+    },
+    {
+      "node_type": "tool",
+      "label": "Nexus",
+      "id": "tool_nexus"
+    },
+    {
+      "node_type": "tool",
+      "label": "JFrog",
+      "id": "tool_jfrog"
+    },
+    {
+      "node_type": "pillar",
+      "label": "Security & Compliance (DevSecOps)",
+      "pillar_num": 5,
+      "diagram_type": "process",
+      "summary": "Covers SAST, DAST, SCA, secrets scanning, container scanning, and compliance gates.",
+      "id": "pillar_5"
+    },
+    {
+      "node_type": "role",
+      "label": "Security Engineer",
+      "id": "role_security_engineer"
+    },
+    {
+      "node_type": "role",
+      "label": "Ops-Rel",
+      "id": "role_ops_rel"
+    },
+    {
+      "node_type": "tool",
+      "label": "Snyk",
+      "id": "tool_snyk"
+    },
+    {
+      "node_type": "tool",
+      "label": "Checkmarx",
+      "id": "tool_checkmarx"
+    },
+    {
+      "node_type": "tool",
+      "label": "OWASP ZAP",
+      "id": "tool_owasp_zap"
+    },
+    {
+      "node_type": "tool",
+      "label": "Twistlock",
+      "id": "tool_twistlock"
+    },
+    {
+      "node_type": "pillar",
+      "label": "Continuous Delivery & Deployment",
+      "pillar_num": 6,
+      "diagram_type": "process",
+      "summary": "Covers release pipeline, environment promotion, blue-green/canary deployments, and rollback mechanisms.",
+      "id": "pillar_6"
+    },
+    {
+      "node_type": "role",
+      "label": "Release Manager",
+      "id": "role_release_manager"
+    },
+    {
+      "node_type": "tool",
+      "label": "ArgoCD",
+      "id": "tool_argocd"
+    },
+    {
+      "node_type": "tool",
+      "label": "Spinnaker",
+      "id": "tool_spinnaker"
+    },
+    {
+      "node_type": "tool",
+      "label": "Harness",
+      "id": "tool_harness"
+    },
+    {
+      "node_type": "tool",
+      "label": "Helm",
+      "id": "tool_helm"
+    },
+    {
+      "node_type": "pillar",
+      "label": "Infrastructure & Configuration Management",
+      "pillar_num": 7,
+      "diagram_type": "technology",
+      "summary": "Covers IaC, environment provisioning, configuration drift detection, and secrets management.",
+      "id": "pillar_7"
+    },
+    {
+      "node_type": "role",
+      "label": "Ops-Infra",
+      "id": "role_ops_infra"
+    },
+    {
+      "node_type": "role",
+      "label": "Cloud Engineer",
+      "id": "role_cloud_engineer"
+    },
+    {
+      "node_type": "tool",
+      "label": "Terraform",
+      "id": "tool_terraform"
+    },
+    {
+      "node_type": "tool",
+      "label": "Ansible",
+      "id": "tool_ansible"
+    },
+    {
+      "node_type": "tool",
+      "label": "Puppet",
+      "id": "tool_puppet"
+    },
+    {
+      "node_type": "tool",
+      "label": "HashiCorp Vault",
+      "id": "tool_hashicorp_vault"
+    },
+    {
+      "node_type": "pillar",
+      "label": "Monitoring & Observability",
+      "pillar_num": 8,
+      "diagram_type": "process",
+      "summary": "Covers application performance monitoring, log aggregation, distributed tracing, alerting, and SLO tracking.",
+      "id": "pillar_8"
+    },
+    {
+      "node_type": "role",
+      "label": "SRE",
+      "id": "role_sre"
+    },
+    {
+      "node_type": "tool",
+      "label": "Prometheus",
+      "id": "tool_prometheus"
+    },
+    {
+      "node_type": "tool",
+      "label": "Grafana",
+      "id": "tool_grafana"
+    },
+    {
+      "node_type": "tool",
+      "label": "ELK Stack",
+      "id": "tool_elk_stack"
+    },
+    {
+      "node_type": "tool",
+      "label": "Datadog",
+      "id": "tool_datadog"
+    },
+    {
+      "node_type": "tool",
+      "label": "Dynatrace",
+      "id": "tool_dynatrace"
+    },
+    {
+      "node_type": "pillar",
+      "label": "Feedback & Continuous Improvement",
+      "pillar_num": 9,
+      "diagram_type": "process",
+      "summary": "Covers retrospectives, lead-time/cycle-time metrics, DORA metrics collection, and improvement backlog management.",
+      "id": "pillar_9"
+    },
+    {
+      "node_type": "role",
+      "label": "IT Lead",
+      "id": "role_it_lead"
+    },
+    {
+      "node_type": "role",
+      "label": "Scrum Master",
+      "id": "role_scrum_master"
+    },
+    {
+      "node_type": "tool",
+      "label": "PowerBI",
+      "id": "tool_powerbi"
+    },
+    {
+      "node_type": "tool",
+      "label": "Tableau",
+      "id": "tool_tableau"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S1: Requirements \u2192 BRS",
+      "s_num": "1",
+      "team": "Business",
+      "tool": "Confluence",
+      "criticality": "Med",
+      "predecessor": "INIT",
+      "id": "activity_s1"
+    },
+    {
+      "node_type": "role",
+      "label": "Business",
+      "id": "role_business"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S2: BRS \u2192 SRS",
+      "s_num": "2",
+      "team": "ITLead",
+      "tool": "Confluence",
+      "criticality": "Med",
+      "predecessor": "1",
+      "id": "activity_s2"
+    },
+    {
+      "node_type": "role",
+      "label": "ITLead",
+      "id": "role_itlead"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S4: BRS \u2192 SRS",
+      "s_num": "4",
+      "team": "ITLead",
+      "tool": "Confluence",
+      "criticality": "Med",
+      "predecessor": "1",
+      "id": "activity_s4"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S16: IT handbook \u2192 SRS",
+      "s_num": "16",
+      "team": "Ops-Rel",
+      "tool": "Confluence",
+      "criticality": "Med",
+      "predecessor": "2",
+      "id": "activity_s16"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S21: BRS \u2192 SRS",
+      "s_num": "21",
+      "team": "ITLead",
+      "tool": "Confluence",
+      "criticality": "Med",
+      "predecessor": "2",
+      "id": "activity_s21"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S22: SRS \u2192 SRS",
+      "s_num": "22",
+      "team": "Architect",
+      "tool": "Confluence",
+      "criticality": "Med",
+      "predecessor": "21",
+      "id": "activity_s22"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S24: SRS \u2192 SRS",
+      "s_num": "24",
+      "team": "ITLead",
+      "tool": "Confluence",
+      "criticality": "Hi",
+      "predecessor": "21",
+      "id": "activity_s24"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S25: BRS/SRS \u2192 BRS/SRS",
+      "s_num": "25",
+      "team": "ITLead",
+      "tool": "Confluence",
+      "criticality": "Low",
+      "predecessor": "24",
+      "id": "activity_s25"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S29: Requirements \u2192 Requirements",
+      "s_num": "29",
+      "team": "ITLead",
+      "tool": "Jira",
+      "criticality": "Hi",
+      "predecessor": "24",
+      "id": "activity_s29"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S31: Requirements \u2192 SRS",
+      "s_num": "31",
+      "team": "ITLead",
+      "tool": "Jira",
+      "criticality": "Med",
+      "predecessor": "29",
+      "id": "activity_s31"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S34: Requirements \u2192 SRS",
+      "s_num": "34",
+      "team": "Dev (incl. QA)",
+      "tool": "Confluence",
+      "criticality": "Hi",
+      "predecessor": "29",
+      "id": "activity_s34"
+    },
+    {
+      "node_type": "role",
+      "label": "Dev (incl. QA)",
+      "id": "role_dev_incl_qa"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S36: Requirements \u2192 SRS",
+      "s_num": "36",
+      "team": "Dev (incl. QA)",
+      "tool": "Confluence",
+      "criticality": "Hi",
+      "predecessor": "29",
+      "id": "activity_s36"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S39",
+      "s_num": "39",
+      "team": "QA",
+      "tool": "Confluence",
+      "criticality": "Hi",
+      "predecessor": "34",
+      "id": "activity_s39"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S40: Requirements \u2192 Test case",
+      "s_num": "40",
+      "team": "QA",
+      "tool": "Jbehave",
+      "criticality": "Med",
+      "predecessor": "39",
+      "id": "activity_s40"
+    },
+    {
+      "node_type": "tool",
+      "label": "Jbehave",
+      "id": "tool_jbehave"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S42: Requirements \u2192 Test case",
+      "s_num": "42",
+      "team": "QA",
+      "tool": "Jbehave",
+      "criticality": "Med",
+      "predecessor": "39",
+      "id": "activity_s42"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S46: Test case \u2192 Test script",
+      "s_num": "46",
+      "team": "QA",
+      "tool": "Jbehave",
+      "criticality": "Med",
+      "predecessor": "40",
+      "id": "activity_s46"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S47: Test case \u2192 Test script",
+      "s_num": "47",
+      "team": "QA",
+      "tool": "Jbehave",
+      "criticality": "Med",
+      "predecessor": "40",
+      "id": "activity_s47"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S50: Test case \u2192 Requirements",
+      "s_num": "50",
+      "team": "QA",
+      "tool": "Jira",
+      "criticality": "Med",
+      "predecessor": "22",
+      "id": "activity_s50"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S98: Requirements \u2192 Infra as code",
+      "s_num": "98",
+      "team": "Ops-Rel",
+      "tool": "Puppet",
+      "criticality": "Med",
+      "predecessor": "2",
+      "id": "activity_s98"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S106: Requirements \u2192 Infra as code",
+      "s_num": "106",
+      "team": "DevOps lead",
+      "tool": "Puppet",
+      "criticality": "Med",
+      "predecessor": "98",
+      "id": "activity_s106"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S113: Template \u2192 Environment",
+      "s_num": "113",
+      "team": "Ops-Infra",
+      "tool": "Puppet",
+      "criticality": "Med",
+      "predecessor": "128",
+      "id": "activity_s113"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S115: Template \u2192 Infra as code",
+      "s_num": "115",
+      "team": "Ops-Rel",
+      "tool": "Puppet",
+      "criticality": "Hi",
+      "predecessor": "98",
+      "id": "activity_s115"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S127: Template \u2192 Service request",
+      "s_num": "127",
+      "team": "Dev (incl. QA)",
+      "tool": "ServiceNow",
+      "criticality": "Med",
+      "predecessor": "115",
+      "id": "activity_s127"
+    },
+    {
+      "node_type": "tool",
+      "label": "ServiceNow",
+      "id": "tool_servicenow"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S128: Service request \u2192 Infra as code",
+      "s_num": "128",
+      "team": "Ops-Infra",
+      "tool": "ServiceNow",
+      "criticality": "Hi",
+      "predecessor": "127",
+      "id": "activity_s128"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S136: Infra as code \u2192 Environment",
+      "s_num": "136",
+      "team": "Ops-Infra",
+      "tool": "Puppet",
+      "criticality": "Med",
+      "predecessor": "128",
+      "id": "activity_s136"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S164: Environment \u2192 Service request",
+      "s_num": "164",
+      "team": "Dev (incl. QA)",
+      "tool": "ServiceNow",
+      "criticality": "Hi",
+      "predecessor": "113",
+      "id": "activity_s164"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S206: Requirements \u2192 Code",
+      "s_num": "206",
+      "team": "Dev (incl. QA)",
+      "tool": "Text editor (UNIX/LINUX)",
+      "criticality": "Med",
+      "predecessor": "164",
+      "id": "activity_s206"
+    },
+    {
+      "node_type": "tool",
+      "label": "Text editor (UNIX/LINUX)",
+      "id": "tool_text_editor_unix_linux"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S212: Design \u2192 Code",
+      "s_num": "212",
+      "team": "Dev (incl. QA)",
+      "tool": "Flyway",
+      "criticality": "Med",
+      "predecessor": "164",
+      "id": "activity_s212"
+    },
+    {
+      "node_type": "tool",
+      "label": "Flyway",
+      "id": "tool_flyway"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S226: Code \u2192 Code",
+      "s_num": "226",
+      "team": "Dev (incl. QA)",
+      "tool": "SonarQube",
+      "criticality": "Med",
+      "predecessor": "206",
+      "id": "activity_s226"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S229: Code \u2192 Code",
+      "s_num": "229",
+      "team": "Dev (incl. QA)",
+      "tool": "GitHub / GitLab",
+      "criticality": "Hi",
+      "predecessor": "226",
+      "id": "activity_s229"
+    },
+    {
+      "node_type": "tool",
+      "label": "GitHub / GitLab",
+      "id": "tool_github_gitlab"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S232: Code \u2192 Code",
+      "s_num": "232",
+      "team": "Dev (incl. QA)",
+      "tool": "Flyway",
+      "criticality": "Hi",
+      "predecessor": "212",
+      "id": "activity_s232"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S245: Code \u2192 Code",
+      "s_num": "245",
+      "team": "Dev (incl. QA)",
+      "tool": "Maven",
+      "criticality": "Med",
+      "predecessor": "229",
+      "id": "activity_s245"
+    },
+    {
+      "node_type": "tool",
+      "label": "Maven",
+      "id": "tool_maven"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S258: Code \u2192 Test result",
+      "s_num": "258",
+      "team": "Dev (incl. QA)",
+      "tool": "Selenium",
+      "criticality": "Med",
+      "predecessor": "229",
+      "id": "activity_s258"
+    },
+    {
+      "node_type": "tool",
+      "label": "Selenium",
+      "id": "tool_selenium"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S260: Code \u2192 Test result",
+      "s_num": "260",
+      "team": "Dev (incl. QA)",
+      "tool": "Selenium",
+      "criticality": "Med",
+      "predecessor": "232",
+      "id": "activity_s260"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S273: Service request \u2192 Environment",
+      "s_num": "273",
+      "team": "QA",
+      "tool": "ServiceNow",
+      "criticality": "Hi",
+      "predecessor": "127",
+      "id": "activity_s273"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S274: Requirements \u2192 Test case",
+      "s_num": "274",
+      "team": "QA",
+      "tool": "Jbehave",
+      "criticality": "Med",
+      "predecessor": "39",
+      "id": "activity_s274"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S279: Test case \u2192 Test script",
+      "s_num": "279",
+      "team": "QA",
+      "tool": "Selenium",
+      "criticality": "Med",
+      "predecessor": "46",
+      "id": "activity_s279"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S280: Test case \u2192 Test script",
+      "s_num": "280",
+      "team": "QA",
+      "tool": "Selenium",
+      "criticality": "Med",
+      "predecessor": "47",
+      "id": "activity_s280"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S283: Test case \u2192 Test script",
+      "s_num": "283",
+      "team": "QA",
+      "tool": "Jmeter",
+      "criticality": "Med",
+      "predecessor": "46",
+      "id": "activity_s283"
+    },
+    {
+      "node_type": "tool",
+      "label": "Jmeter",
+      "id": "tool_jmeter"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S284: Test case \u2192 Test script",
+      "s_num": "284",
+      "team": "QA",
+      "tool": "Jmeter",
+      "criticality": "Med",
+      "predecessor": "47",
+      "id": "activity_s284"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S305: Test script \u2192 Test result",
+      "s_num": "305",
+      "team": "QA",
+      "tool": "Selenium",
+      "criticality": "Med",
+      "predecessor": "279",
+      "id": "activity_s305"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S306: Test case \u2192 Test result",
+      "s_num": "306",
+      "team": "QA",
+      "tool": "Selenium",
+      "criticality": "Med",
+      "predecessor": "280",
+      "id": "activity_s306"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S309: Test script \u2192 Test result",
+      "s_num": "309",
+      "team": "QA",
+      "tool": "Jmeter",
+      "criticality": "Med",
+      "predecessor": "283",
+      "id": "activity_s309"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S310: Test case \u2192 Test result",
+      "s_num": "310",
+      "team": "QA",
+      "tool": "Jmeter",
+      "criticality": "Med",
+      "predecessor": "284",
+      "id": "activity_s310"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S329: Test result \u2192 Defect",
+      "s_num": "329",
+      "team": "QA",
+      "tool": "Jira",
+      "criticality": "Med",
+      "predecessor": "305",
+      "id": "activity_s329"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S330: Defect \u2192 Checklist",
+      "s_num": "330",
+      "team": "ITLead",
+      "tool": "Jira",
+      "criticality": "Med",
+      "predecessor": "329",
+      "id": "activity_s330"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S332: Defect \u2192 Code",
+      "s_num": "332",
+      "team": "Dev (incl. QA)",
+      "tool": "Text editor (UNIX/LINUX)",
+      "criticality": "Med",
+      "predecessor": "330",
+      "id": "activity_s332"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S333: Defect \u2192 Code",
+      "s_num": "333",
+      "team": "Dev (incl. QA)",
+      "tool": "Jira",
+      "criticality": "Med",
+      "predecessor": "332",
+      "id": "activity_s333"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S334: Test result \u2192 Checklist",
+      "s_num": "334",
+      "team": "QA",
+      "tool": "Jira",
+      "criticality": "Med",
+      "predecessor": "333",
+      "id": "activity_s334"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S335: Requirements \u2192 Release plan",
+      "s_num": "335",
+      "team": "Ops-Rel",
+      "tool": "Jira",
+      "criticality": "Med",
+      "predecessor": "2",
+      "id": "activity_s335"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S336: Requirements \u2192 Release plan",
+      "s_num": "336",
+      "team": "Ops-Rel",
+      "tool": "Jira",
+      "criticality": "Med",
+      "predecessor": "335",
+      "id": "activity_s336"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S347: Service request \u2192 Code",
+      "s_num": "347",
+      "team": "Ops-Rel",
+      "tool": "XL Deploy",
+      "criticality": "Med",
+      "predecessor": "334",
+      "id": "activity_s347"
+    },
+    {
+      "node_type": "tool",
+      "label": "XL Deploy",
+      "id": "tool_xl_deploy"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S348: Service request \u2192 Code",
+      "s_num": "348",
+      "team": "Ops-Rel",
+      "tool": "XL Deploy",
+      "criticality": "Med",
+      "predecessor": "334",
+      "id": "activity_s348"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S352: Service request \u2192 Code",
+      "s_num": "352",
+      "team": "Ops-Rel",
+      "tool": "XL Deploy",
+      "criticality": "Med",
+      "predecessor": "334",
+      "id": "activity_s352"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S354: Service request \u2192 Code",
+      "s_num": "354",
+      "team": "Ops-Rel",
+      "tool": "XL Deploy",
+      "criticality": "Med",
+      "predecessor": "334",
+      "id": "activity_s354"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S363: Service request \u2192 Code",
+      "s_num": "363",
+      "team": "Ops-Rel",
+      "tool": "XL Deploy",
+      "criticality": "Med",
+      "predecessor": "352",
+      "id": "activity_s363"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S364: Service request \u2192 Code",
+      "s_num": "364",
+      "team": "Ops-Rel",
+      "tool": "XL Deploy",
+      "criticality": "Med",
+      "predecessor": "354",
+      "id": "activity_s364"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S366: Service request \u2192 Code",
+      "s_num": "366",
+      "team": "Ops-Rel",
+      "tool": "XL Deploy",
+      "criticality": "Med",
+      "predecessor": "363",
+      "id": "activity_s366"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S368: Service request \u2192 Code",
+      "s_num": "368",
+      "team": "Ops-Rel",
+      "tool": "XL Deploy",
+      "criticality": "Med",
+      "predecessor": "364",
+      "id": "activity_s368"
+    },
+    {
+      "node_type": "activity",
+      "label": "Activity S377: Code \u2192 Report",
+      "s_num": "377",
+      "team": "Ops-Rel",
+      "tool": "OverOps",
+      "criticality": "Med",
+      "predecessor": "352",
+      "id": "activity_s377"
+    },
+    {
+      "node_type": "tool",
+      "label": "OverOps",
+      "id": "tool_overops"
+    }
+  ],
+  "edges": [
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_1",
+      "target": "role_product_owner"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_1",
+      "target": "role_business_analyst"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_1",
+      "target": "tool_jira"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_1",
+      "target": "tool_confluence"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_1",
+      "target": "tool_azure_devops_boards"
+    },
+    {
+      "rel": "PRECEDES",
+      "source": "pillar_1",
+      "target": "pillar_2"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jira",
+      "target": "activity_s29"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jira",
+      "target": "activity_s31"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jira",
+      "target": "activity_s50"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jira",
+      "target": "activity_s329"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jira",
+      "target": "activity_s330"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jira",
+      "target": "activity_s333"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jira",
+      "target": "activity_s334"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jira",
+      "target": "activity_s335"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jira",
+      "target": "activity_s336"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_confluence",
+      "target": "activity_s1"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_confluence",
+      "target": "activity_s2"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_confluence",
+      "target": "activity_s4"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_confluence",
+      "target": "activity_s16"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_confluence",
+      "target": "activity_s21"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_confluence",
+      "target": "activity_s22"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_confluence",
+      "target": "activity_s24"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_confluence",
+      "target": "activity_s25"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_confluence",
+      "target": "activity_s34"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_confluence",
+      "target": "activity_s36"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_confluence",
+      "target": "activity_s39"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_2",
+      "target": "role_architect"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_2",
+      "target": "role_tech_lead"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_2",
+      "target": "tool_draw_io"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_2",
+      "target": "tool_lucidchart"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_2",
+      "target": "tool_enterprise_architect"
+    },
+    {
+      "rel": "PRECEDES",
+      "source": "pillar_2",
+      "target": "pillar_3"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_architect",
+      "target": "activity_s22"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_3",
+      "target": "role_developer"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_3",
+      "target": "role_qa"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_3",
+      "target": "tool_sonarqube"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_3",
+      "target": "tool_github"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_3",
+      "target": "tool_gitlab"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_3",
+      "target": "tool_bitbucket"
+    },
+    {
+      "rel": "PRECEDES",
+      "source": "pillar_3",
+      "target": "pillar_4"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s39"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s40"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s42"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s46"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s47"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s50"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s273"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s274"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s279"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s280"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s283"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s284"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s305"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s306"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s309"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s310"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s329"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_qa",
+      "target": "activity_s334"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_sonarqube",
+      "target": "activity_s226"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_4",
+      "target": "role_devops_lead"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_4",
+      "target": "role_developer"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_4",
+      "target": "tool_jenkins"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_4",
+      "target": "tool_github_actions"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_4",
+      "target": "tool_circleci"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_4",
+      "target": "tool_nexus"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_4",
+      "target": "tool_jfrog"
+    },
+    {
+      "rel": "PRECEDES",
+      "source": "pillar_4",
+      "target": "pillar_5"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_devops_lead",
+      "target": "activity_s106"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_5",
+      "target": "role_security_engineer"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_5",
+      "target": "role_ops_rel"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_5",
+      "target": "tool_snyk"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_5",
+      "target": "tool_checkmarx"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_5",
+      "target": "tool_owasp_zap"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_5",
+      "target": "tool_twistlock"
+    },
+    {
+      "rel": "PRECEDES",
+      "source": "pillar_5",
+      "target": "pillar_6"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_rel",
+      "target": "activity_s16"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_rel",
+      "target": "activity_s98"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_rel",
+      "target": "activity_s115"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_rel",
+      "target": "activity_s335"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_rel",
+      "target": "activity_s336"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_rel",
+      "target": "activity_s347"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_rel",
+      "target": "activity_s348"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_rel",
+      "target": "activity_s352"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_rel",
+      "target": "activity_s354"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_rel",
+      "target": "activity_s363"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_rel",
+      "target": "activity_s364"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_rel",
+      "target": "activity_s366"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_rel",
+      "target": "activity_s368"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_rel",
+      "target": "activity_s377"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_6",
+      "target": "role_devops_lead"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_6",
+      "target": "role_release_manager"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_6",
+      "target": "tool_argocd"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_6",
+      "target": "tool_spinnaker"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_6",
+      "target": "tool_harness"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_6",
+      "target": "tool_helm"
+    },
+    {
+      "rel": "PRECEDES",
+      "source": "pillar_6",
+      "target": "pillar_7"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_7",
+      "target": "role_ops_infra"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_7",
+      "target": "role_cloud_engineer"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_7",
+      "target": "tool_terraform"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_7",
+      "target": "tool_ansible"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_7",
+      "target": "tool_puppet"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_7",
+      "target": "tool_hashicorp_vault"
+    },
+    {
+      "rel": "PRECEDES",
+      "source": "pillar_7",
+      "target": "pillar_8"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_infra",
+      "target": "activity_s113"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_infra",
+      "target": "activity_s128"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_ops_infra",
+      "target": "activity_s136"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_puppet",
+      "target": "activity_s98"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_puppet",
+      "target": "activity_s106"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_puppet",
+      "target": "activity_s113"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_puppet",
+      "target": "activity_s115"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_puppet",
+      "target": "activity_s136"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_8",
+      "target": "role_ops_rel"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_8",
+      "target": "role_sre"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_8",
+      "target": "tool_prometheus"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_8",
+      "target": "tool_grafana"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_8",
+      "target": "tool_elk_stack"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_8",
+      "target": "tool_datadog"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_8",
+      "target": "tool_dynatrace"
+    },
+    {
+      "rel": "PRECEDES",
+      "source": "pillar_8",
+      "target": "pillar_9"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_9",
+      "target": "role_devops_lead"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_9",
+      "target": "role_it_lead"
+    },
+    {
+      "rel": "HAS_ROLE",
+      "source": "pillar_9",
+      "target": "role_scrum_master"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_9",
+      "target": "tool_jira"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_9",
+      "target": "tool_powerbi"
+    },
+    {
+      "rel": "USES_TOOL",
+      "source": "pillar_9",
+      "target": "tool_tableau"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_business",
+      "target": "activity_s1"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_itlead",
+      "target": "activity_s2"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_itlead",
+      "target": "activity_s4"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_itlead",
+      "target": "activity_s21"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_itlead",
+      "target": "activity_s24"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_itlead",
+      "target": "activity_s25"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_itlead",
+      "target": "activity_s29"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_itlead",
+      "target": "activity_s31"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_itlead",
+      "target": "activity_s330"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_dev_incl_qa",
+      "target": "activity_s34"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_dev_incl_qa",
+      "target": "activity_s36"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_dev_incl_qa",
+      "target": "activity_s127"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_dev_incl_qa",
+      "target": "activity_s164"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_dev_incl_qa",
+      "target": "activity_s206"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_dev_incl_qa",
+      "target": "activity_s212"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_dev_incl_qa",
+      "target": "activity_s226"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_dev_incl_qa",
+      "target": "activity_s229"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_dev_incl_qa",
+      "target": "activity_s232"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_dev_incl_qa",
+      "target": "activity_s245"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_dev_incl_qa",
+      "target": "activity_s258"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_dev_incl_qa",
+      "target": "activity_s260"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_dev_incl_qa",
+      "target": "activity_s332"
+    },
+    {
+      "rel": "OWNS_ACTIVITY",
+      "source": "role_dev_incl_qa",
+      "target": "activity_s333"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jbehave",
+      "target": "activity_s40"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jbehave",
+      "target": "activity_s42"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jbehave",
+      "target": "activity_s46"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jbehave",
+      "target": "activity_s47"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jbehave",
+      "target": "activity_s274"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_servicenow",
+      "target": "activity_s127"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_servicenow",
+      "target": "activity_s128"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_servicenow",
+      "target": "activity_s164"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_servicenow",
+      "target": "activity_s273"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_text_editor_unix_linux",
+      "target": "activity_s206"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_text_editor_unix_linux",
+      "target": "activity_s332"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_flyway",
+      "target": "activity_s212"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_flyway",
+      "target": "activity_s232"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_github_gitlab",
+      "target": "activity_s229"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_maven",
+      "target": "activity_s245"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_selenium",
+      "target": "activity_s258"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_selenium",
+      "target": "activity_s260"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_selenium",
+      "target": "activity_s279"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_selenium",
+      "target": "activity_s280"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_selenium",
+      "target": "activity_s305"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_selenium",
+      "target": "activity_s306"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jmeter",
+      "target": "activity_s283"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jmeter",
+      "target": "activity_s284"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jmeter",
+      "target": "activity_s309"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_jmeter",
+      "target": "activity_s310"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_xl_deploy",
+      "target": "activity_s347"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_xl_deploy",
+      "target": "activity_s348"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_xl_deploy",
+      "target": "activity_s352"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_xl_deploy",
+      "target": "activity_s354"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_xl_deploy",
+      "target": "activity_s363"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_xl_deploy",
+      "target": "activity_s364"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_xl_deploy",
+      "target": "activity_s366"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_xl_deploy",
+      "target": "activity_s368"
+    },
+    {
+      "rel": "USED_IN",
+      "source": "tool_overops",
+      "target": "activity_s377"
+    }
+  ]
+}

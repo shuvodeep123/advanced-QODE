@@ -3,7 +3,7 @@ rag_pipeline — Graph-RAG pipeline for advanced-QODE.
 
 Modules
 -------
-    llm_client        : KodeKloud (OpenAI-compatible) LLM wrapper.
+    llm_client        : HuggingFace (OpenAI-compatible) LLM wrapper.
     ingest            : Multi-format ChromaDB ingestion + knowledge graph build.
     retriever         : ChromaDB vector similarity retrieval (low-level).
     graph_builder     : QODE knowledge graph construction and persistence.
