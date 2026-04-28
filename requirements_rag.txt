@@ -18,8 +18,12 @@ scikit-image>=0.22.0          # Image I/O helpers
 matplotlib>=3.8.0             # Plotting utilities
 
 # ── Multi-format document ingestion ──────────────────────────────────────────
-python-docx>=1.1.0            # .docx ingestion
+python-docx>=1.1.0            # .docx ingestion + Word document generation
 pypdf>=4.0.0                  # .pdf ingestion
+    
+# ── Document export (follow-up analysis downloads) ───────────────────────────
+python-pptx>=0.6.21           # PowerPoint (.pptx) export
+fpdf2>=2.7.0                  # PDF export (lightweight, no LaTeX dependency)
 
 # ── LangGraph agentic router ─────────────────────────────────────────────────
 langgraph>=0.2.0              # Stateful agentic graph (As-Is vs Principles routing)

@@ -1,0 +1,53 @@
+digraph G {
+  rankdir=TD;
+
+  // Nodes from As-Is People (verified ground truth)
+  Business [shape=box, style=filled, fillcolor="#ADD8E6"];
+  ITLead [shape=box, style=filled, fillcolor="#ADD8E6"];
+  "Ops-Rel" [shape=box, style=filled, fillcolor="#ADD8E6"];
+  Architect [shape=box, style=filled, fillcolor="#ADD8E6"];
+  "Dev (incl. QA)" [shape=box, style=filled, fillcolor="#ADD8E6"];
+  QA [shape=box, style=filled, fillcolor="#ADD8E6"];
+  "DevOps lead" [shape=box, style=filled, fillcolor="#ADD8E6"];
+  "Ops-Infra" [shape=box, style=filled, fillcolor="#ADD8E6"];
+
+  // To-Be impact labeling (propensity): higher color = higher uplift expectation
+  // Green = NEW propensity / additional engagement expected
+  // Blue  = IMPROVED propensity / more emphasis
+  // (We do NOT have a verified To-Be People graph; this diagram maps To-Be TECH toolchain impact onto People roles.)
+  classDef newp fill:#065f46,stroke:#34d399,color:#fff,style=filled;
+  classDef improvp fill:#1d4ed8,stroke:#60a5fa,color:#fff,style=filled;
+  classDef keptp fill:#1e3a5f,stroke:#3b82f6,color:#e0e7ff,style=filled;
+
+  // Baseline interactions (kept edges from As-Is people)
+  Business -> ITLead [color="#000000", penwidth=0.9];
+  ITLead -> Architect [color="#FFA500", penwidth=0.9];
+  ITLead -> "Dev (incl. QA)" [color="#000000", penwidth=0.9];
+  "Dev (incl. QA)" -> QA [color="#FFA500", penwidth=0.9];
+  ITLead -> "Ops-Rel" [color="#FFA500", penwidth=0.9];
+  "Ops-Rel" -> "DevOps lead" [color="#FFA500", penwidth=0.9];
+  QA -> "Ops-Infra" [color="#000000", penwidth=0.9];
+  "Dev (incl. QA)" -> "Ops-Infra" [color="#FFA500", penwidth=0.9];
+
+  // Propensity edges: where To-Be tech upgrades create extra responsibility/coordination load
+  // (No toolchain -> people mapping was provided explicitly, so this is a derived QoDE-consistent propensity view.)
+  ITLead -> "DevOps lead" [color="#60a5fa", penwidth=2.0, label="Propensity: pipeline governance uplift"];
+  "Dev (incl. QA)" -> QA [color="#60a5fa", penwidth=2.0, label="Propensity: security test participation uplift"];
+  "Dev (incl. QA)" -> "Ops-Rel" [color="#60a5fa", penwidth=1.8, label="Propensity: CI/CD integration & policy gates"];
+  "DevOps lead" -> "Ops-Infra" [color="#34d399", penwidth=2.0, label="Propensity: observability/SecOps enablement"];
+  Architect -> ITLead [color="#60a5fa", penwidth=1.6, label="Propensity: platform/policy design emphasis"];
+
+  // Node propensity classification
+  // Higher propensity: roles expected to engage more due to To-Be tech (CI/Sec/Obs/policy/infra)
+  class Business keptp;
+  class ITLead improvp;
+  class Architect improvp;
+  class "DevOps lead" newp;
+  class "Ops-Infra" newp;
+  class "Ops-Rel" improvp;
+  class "Dev (incl. QA)" improvp;
+  class QA improvp;
+
+  // Legend
+  Legend [shape=note, fontsize=10, label="People Propensity = expected increase in engagement/ownership due to To-Be tech changes\nGreen: NEW propensity, Blue: IMPROVED propensity, Dark blue: baseline/KEPT"];
+}

@@ -1,0 +1,40 @@
+flowchart TD
+  %% As-Is People baseline nodes
+  Business[Business]
+  ITLead[ITLead]
+  OpsRel["Ops-Rel"]
+  Architect[Architect]
+  DevQA["Dev (incl. QA)"]
+  QA[QA]
+  DevOpsLead["DevOps lead"]
+  OpsInfra["Ops-Infra"]
+
+  %% Baseline As-Is interactions (kept)
+  Business -->|baseline| ITLead
+  ITLead -->|baseline| Architect
+  ITLead -->|baseline| DevQA
+  DevQA -->|baseline| QA
+  ITLead -->|baseline| OpsRel
+  OpsRel -->|baseline| DevOpsLead
+  QA -->|baseline| OpsInfra
+  DevQA -->|baseline| OpsInfra
+
+  %% Propensity (derived from To-Be tech upgrades)
+  ITLead -->|Propensity (more governance)| DevOpsLead
+  DevQA -->|Propensity (more security testing)| QA
+  DevQA -->|Propensity (pipeline/policy gates)| OpsRel
+  DevOpsLead -->|Propensity (observability/SecOps enablement)| OpsInfra
+  Architect -->|Propensity (platform/policy design)| ITLead
+
+  %% Legend
+  Legend[People Propensity = expected increase in engagement/ownership due to To-Be tech changes
+  Green: NEW propensity | Blue: IMPROVED propensity | Dark blue: baseline/KEPT]
+  
+  %% Styles
+  classDef newp fill:#065f46,stroke:#34d399,color:#fff;
+  classDef improvp fill:#1d4ed8,stroke:#60a5fa,color:#fff;
+  classDef keptp fill:#1e3a5f,stroke:#3b82f6,color:#e0e7ff;
+
+  class ITLead,Architect,OpsRel,DevQA,QA improvp;
+  class DevOpsLead,OpsInfra newp;
+  class Business keptp;

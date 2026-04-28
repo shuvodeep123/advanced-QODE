@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile version="20.0.0">
+  <diagram name="General Architecture">
+    <mxGraphModel dx="1034" dy="546" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="2" value="node" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="80" y="80" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="3" value="Product Owner" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fillColor=#e5e7eb;" vertex="1" parent="1"><mxGeometry x="240" y="80" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="4" value="Business Analyst" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fillColor=#e5e7eb;" vertex="1" parent="1"><mxGeometry x="400" y="80" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="5" value="Architect" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fillColor=#e5e7eb;" vertex="1" parent="1"><mxGeometry x="560" y="80" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="6" value="Tech Lead" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fillColor=#e5e7eb;" vertex="1" parent="1"><mxGeometry x="720" y="80" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="7" value="Developer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fillColor=#e5e7eb;" vertex="1" parent="1"><mxGeometry x="80" y="180" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="8" value="QA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fillColor=#e5e7eb;" vertex="1" parent="1"><mxGeometry x="240" y="180" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="9" value="verifies requirements for testability" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fillColor=#e5e7eb;" vertex="1" parent="1"><mxGeometry x="400" y="180" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="10" value="uses" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="560" y="180" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="11" value="uses" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="720" y="180" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="12" value="uses" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="80" y="280" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="13" value="Enterprise Architect" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="240" y="280" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="14" value="draw.io" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="400" y="280" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="15" value="Lucidchart" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="560" y="280" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="16" value="static analysis support" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="720" y="280" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="17" value="GitHub" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="80" y="380" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="18" value="GitLab" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="240" y="380" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="19" value="Bitbucket" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="400" y="380" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="20" value="drives backlog & SRS workflow (via boards)" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="3" target="9" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="21" value="supports requirements documentation" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="4" target="9" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="22" value="owns SRS activity scope" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="5" target="9" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="23" value="architecture/technical review input" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="6" target="9" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="24" value="implements based on SRS" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="7" target="9" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="25" value="verifies requirements for testability" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="8" target="9" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="26" value="uses" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="3" target="12" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="27" value="uses" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="3" target="10" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="28" value="uses" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="4" target="11" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="29" value="static analysis support" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="7" target="16" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

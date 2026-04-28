@@ -60,6 +60,31 @@ _DIAGRAM_MAP: dict[str, tuple[str, str, str, str]] = {
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # ---------------------------------------------------------------------------
+# Structured output directories
+# AS-IS and TO-BE diagrams are persisted in their own sub-trees so they are
+# easy to find, version, and share independently.
+# ---------------------------------------------------------------------------
+ASIS_DIRS: dict[str, Path] = {
+    "dot":    _REPO_ROOT / "AS-IS" / "DotGraph",
+    "mermaid": _REPO_ROOT / "AS-IS" / "Mermaid",
+    "drawio":  _REPO_ROOT / "AS-IS" / "draw.io",
+}
+TOBE_DIRS: dict[str, Path] = {
+    "dot":    _REPO_ROOT / "TO-BE" / "DotGraph",
+    "mermaid": _REPO_ROOT / "TO-BE" / "Mermaid",
+    "drawio":  _REPO_ROOT / "TO-BE" / "draw.io",
+}
+
+
+def _ensure_output_dirs() -> None:
+    """Create all AS-IS and TO-BE output directories if they don't exist."""
+    for d in list(ASIS_DIRS.values()) + list(TOBE_DIRS.values()):
+        d.mkdir(parents=True, exist_ok=True)
+
+
+_ensure_output_dirs()
+
+# ---------------------------------------------------------------------------
 # QODE questionnaire discovery — accepts any .xlsm, not just a hardcoded name
 # ---------------------------------------------------------------------------
 
@@ -526,6 +551,13 @@ def run(
 
         dot_text = dot_path.read_text(encoding="utf-8", errors="replace")
 
+        # ── Save canonical As-Is DOT to structured AS-IS/DotGraph/ dir ────
+        try:
+            asis_dot_out = ASIS_DIRS["dot"] / f"{dot_filename}.dot"
+            asis_dot_out.write_text(dot_text, encoding="utf-8")
+        except Exception as _e:
+            logger.warning("Could not write AS-IS DOT to structured dir: %s", _e)
+
         # ── 1. Try PNG (Graphviz) ──────────────────────────────────────────
         if output_format in ("auto", "png"):
             png_path = dot_path.with_suffix(".png")
@@ -543,21 +575,24 @@ def run(
 
         # ── 2. Mermaid (.mmd) ─────────────────────────────────────────────
         if output_format in ("auto", "mermaid"):
+            # Primary output: structured AS-IS/Mermaid/ dir; legacy root path kept as fallback
             mmd_path = dot_path.with_suffix(".mmd")
+            asis_mmd_out = ASIS_DIRS["mermaid"] / f"{dot_filename}.mmd"
             try:
                 mmd_text = dot_to_mermaid(dot_text, diagram_type)
-                mmd_path.write_text(mmd_text, encoding="utf-8")
-                logger.info("Mermaid diagram saved: %s", mmd_path)
-                # Always write draw.io as a parallel artifact (silently)
+                mmd_path.write_text(mmd_text, encoding="utf-8")           # legacy root copy
+                asis_mmd_out.write_text(mmd_text, encoding="utf-8")       # structured copy
+                logger.info("Mermaid diagram saved: %s (+ %s)", mmd_path, asis_mmd_out)
+                # draw.io — both legacy root and AS-IS/draw.io/
                 try:
-                    dot_path.with_suffix(".drawio").write_text(
-                        dot_to_drawio(dot_text, diagram_type), encoding="utf-8"
-                    )
-                    logger.info("draw.io parallel artifact saved: %s",
-                                dot_path.with_suffix(".drawio"))
+                    drawio_text = dot_to_drawio(dot_text, diagram_type)
+                    dot_path.with_suffix(".drawio").write_text(drawio_text, encoding="utf-8")
+                    asis_drawio_out = ASIS_DIRS["drawio"] / f"{dot_filename}.drawio"
+                    asis_drawio_out.write_text(drawio_text, encoding="utf-8")
+                    logger.info("draw.io AS-IS artifact saved: %s", asis_drawio_out)
                 except Exception:
                     pass
-                return str(mmd_path)
+                return str(asis_mmd_out)   # return structured path
             except Exception as mmd_err:
                 logger.warning("Mermaid conversion failed: %s", mmd_err)
             if output_format == "mermaid":

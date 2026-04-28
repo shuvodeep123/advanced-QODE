@@ -29,7 +29,7 @@ from pathlib import Path as _Path
 
 from .graph_builder import DEFAULT_GRAPH_PATH
 from .graph_retriever import get_retriever
-from .diagram_executor import run as run_diagram, get_dot_path
+from .diagram_executor import run as run_diagram, get_dot_path, TOBE_DIRS, dot_to_drawio
 from .principles_engine import PrinciplesEngine, extract_principle_context
 from .langfuse_tracer import get_tracer
 
@@ -159,6 +159,30 @@ def detect_asis_request(query: str) -> bool:
     return any(kw in lower for kw in _ASIS_KEYWORDS)
 
 
+# Keywords that indicate a narrative/planning follow-up (document-worthy response)
+_NARRATIVE_KEYWORDS = [
+    "30-60-90", "30 60 90", "roadmap", "plan",
+    "what improvements", "improvement", "recommendation",
+    "assessment", "maturity", "report", "summary",
+    "strategy", "assess", "review", "across all",
+    "all engineering", "all principles",
+]
+_DIAGRAM_NOUN_KEYWORDS = ["diagram", "chart", "flowchart", "architecture"]
+
+
+def detect_narrative_request(query: str) -> bool:
+    """Return True for analysis/planning questions that warrant document generation.
+
+    These are follow-up questions (not diagram requests) that produce structured
+    narrative output — e.g. 'What improvements are required in Technology Disciplines
+    across all engineering principles?' or 'Create a 30-60-90 days plan'.
+    """
+    lower = query.lower()
+    has_narrative = any(kw in lower for kw in _NARRATIVE_KEYWORDS)
+    has_diagram   = any(kw in lower for kw in _DIAGRAM_NOUN_KEYWORDS)
+    return has_narrative and not has_diagram
+
+
 def _wants_diagram(query: str) -> bool:
     lower = query.lower()
     return any(kw in lower for kw in _GENERATE_KEYWORDS)
@@ -187,8 +211,10 @@ class AgentState(TypedDict, total=False):
     gap_items: list[str]            # pillar / component names to be "removed"
     # output
     diagram_path: str | None
+    tobe_dot_path: str | None   # Graphviz DOT for To-Be diagram (from LLM)
     diagram_type: str | None
     reply_text: str
+    thinking_text: str          # content of <think>…</think> block (may be empty)
     reply_stream: Iterator[str] | None
     mode: str            # "asis" | "principles"
     eval_score: float | None
@@ -200,87 +226,32 @@ class AgentState(TypedDict, total=False):
 # ---------------------------------------------------------------------------
 
 def _node_route(state: AgentState) -> AgentState:
-    """Classify intent and decide which path to take."""
+    """Classify intent and decide which path to take.
+
+    Both As-Is and To-Be diagram requests now go through the LLM path
+    (load_asis → principles).  As-Is requests keep ``is_asis=True`` so
+    ``_node_principles`` knows to produce an analysis of the current state
+    rather than a To-Be diagram.
+    """
     query = state["user_message"]
     state["intent"] = detect_intent(query)
     state["is_asis"] = detect_asis_request(query)
     state["principle_ctx"] = extract_principle_context(query)
     state["is_gap_analysis"] = detect_gap_analysis_request(query)
     state["gap_items"] = _extract_removed_items(query) if state["is_gap_analysis"] else []
-    # Gap analysis always takes the LLM path even if as-is keywords present
+    # Gap analysis always takes the LLM path
     if state["is_gap_analysis"]:
         state["is_asis"] = False
     return state
 
 
-def _node_asis(state: AgentState) -> AgentState:
-    """As-Is path: RAG retrieval → diagram generator, zero LLM."""
-    intent = state["intent"]
-    tracer = get_tracer()
-
-    with tracer.trace("asis_retrieval", input={"intent": intent}):
-        retriever = get_retriever(
-            graph_path=state["graph_path"],
-            chroma_path=state["chroma_path"],
-        )
-        chunks = retriever.retrieve(
-            query=state["user_message"],
-            k=5,
-            diagram_type=intent if intent != "general" else None,
-            graph_hops=2,
-        )
-        state["context_chunks"] = chunks
-
-    diagram_path: str | None = None
-    if intent != "general":
-        try:
-            diagram_path = run_diagram(
-                diagram_type=intent,
-                excel_path=state.get("excel_path"),
-            )
-        except Exception as exc:
-            logger.error("Diagram generation failed: %s", exc)
-            state["error"] = str(exc)
-
-    # Validate that the generated file actually exists on disk
-    if diagram_path and not _Path(diagram_path).exists():
-        logger.error("As-Is diagram file not found at '%s'", diagram_path)
-        state["error"] = f"Diagram file was not saved at '{diagram_path}'"
-        diagram_path = None
-
-    state["diagram_path"] = diagram_path
-    state["diagram_type"] = intent if intent != "general" else None
-    state["mode"] = "asis"
-    state["eval_score"] = None
-    state["asis_diagram_data"] = None  # As-Is path does not need LLM grounding
-
-    # Build a descriptive reply without calling an LLM
-    if diagram_path:
-        fmt = _Path(diagram_path).suffix.upper().lstrip(".")
-        state["reply_text"] = (
-            f"✅ **As-Is {intent.title()} Architecture** generated from your questionnaire.\n\n"
-            f"Rendered as **{fmt}** directly by the `Generate_{intent.title()}_*_Diagram.py` "
-            f"module — no LLM involved. View or download the diagram below."
-        )
-    else:
-        state["reply_text"] = (
-            "⚠️ Could not generate the As-Is diagram. "
-            "Please ensure a valid QODE questionnaire is uploaded and retry."
-        )
-    state["reply_stream"] = None
-    return state
-
-
 def _node_load_asis(state: AgentState) -> AgentState:
-    """Pre-load As-Is architecture data to ground every To-Be / principles LLM call.
+    """Pre-load As-Is architecture data to ground every LLM call.
 
     Runs the diagram generator for the detected intent, reads the raw DOT text
     from the questionnaire, and stores it in ``state['asis_diagram_data']``.
-    The LLM in ``_node_principles`` will receive this as verified ground truth
-    so it cannot hallucinate the current-state architecture.
-
-    Also captures the rendered diagram path so the UI can display the As-Is
-    diagram alongside any To-Be recommendations.
+    The LLM in ``_node_principles`` receives this as verified ground truth.
+    Also captures the rendered diagram path so the UI can display it.
     """
     intent = state["intent"]
 
@@ -292,7 +263,6 @@ def _node_load_asis(state: AgentState) -> AgentState:
 
     tracer = get_tracer()
     with tracer.trace("load_asis_ground_truth", input={"intent": intent}):
-        # Generate the As-Is diagram (writes the DOT file as a side-effect)
         diagram_path: str | None = None
         try:
             diagram_path = run_diagram(
@@ -302,7 +272,6 @@ def _node_load_asis(state: AgentState) -> AgentState:
         except Exception as exc:
             logger.warning("As-Is diagram render failed: %s", exc)
 
-        # Validate the rendered file exists
         if diagram_path and not _Path(diagram_path).exists():
             logger.warning("As-Is diagram file not found at '%s' — proceeding without it.", diagram_path)
             diagram_path = None
@@ -310,7 +279,6 @@ def _node_load_asis(state: AgentState) -> AgentState:
         state["diagram_path"] = diagram_path
         state["diagram_type"] = intent
 
-        # Read the DOT file that the generator always writes as ground truth
         dot_file = get_dot_path(intent)
         if dot_file and dot_file.exists():
             state["asis_diagram_data"] = dot_file.read_text(encoding="utf-8", errors="replace")
@@ -334,11 +302,9 @@ def _extract_mermaid(text: str) -> str | None:
     an un-fenced ``flowchart`` or ``graph`` declaration.
     Returns the raw Mermaid source (without the fence lines), or None.
     """
-    # Fenced block: ```mermaid … ```
     m = re.search(r"```mermaid\s*\n(.*?)```", text, re.DOTALL | re.IGNORECASE)
     if m:
         return m.group(1).strip()
-    # Un-fenced flowchart / graph declaration
     m = re.search(
         r"((?:flowchart|graph)\s+(?:TD|LR|BT|RL)\b.*)",
         text,
@@ -349,8 +315,34 @@ def _extract_mermaid(text: str) -> str | None:
     return None
 
 
+def _extract_dot(text: str) -> str | None:
+    """Extract the first Graphviz DOT graph from an LLM reply text.
+
+    Looks for a fenced ```dot … ``` block first, then falls back to
+    a bare ``digraph`` / ``graph`` declaration.
+    Returns the raw DOT source (without the fence lines), or None.
+    """
+    m = re.search(r"```dot\s*\n(.*?)```", text, re.DOTALL | re.IGNORECASE)
+    if m:
+        return m.group(1).strip()
+    m = re.search(
+        r"((?:di)?graph\s+\w*\s*\{.*?\}\s*)",
+        text,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if m:
+        return m.group(1).strip()
+    return None
+
+
 def _node_principles(state: AgentState) -> AgentState:
-    """Engineering Principles path: Graph-RAG + LLM with Langfuse tracing."""
+    """Engineering Principles path: Graph-RAG + LLM with Langfuse tracing.
+
+    Handles three sub-modes:
+    - ``is_asis=True``        : As-Is analysis — explain + assess current state
+    - ``is_gap_analysis=True``: Gap analysis  — impact of removing components
+    - default                 : To-Be          — recommend target-state improvements
+    """
     from . import llm_client  # lazy import to keep As-Is path LLM-free
 
     intent = state["intent"]
@@ -381,6 +373,7 @@ def _node_principles(state: AgentState) -> AgentState:
         principle_ctx=state.get("principle_ctx", {}),
         asis_diagram_data=state.get("asis_diagram_data"),
         gap_items=state.get("gap_items"),
+        is_asis=state.get("is_asis", False),
     )
 
     # ── LLM call with Langfuse tracing ────────────────────────────────────
@@ -392,52 +385,80 @@ def _node_principles(state: AgentState) -> AgentState:
             if state.get("stream"):
                 state["reply_stream"] = llm_client.chat_stream(messages)
                 state["reply_text"] = ""
+                state["thinking_text"] = ""
             else:
-                state["reply_text"] = llm_client.chat(messages)
+                raw_reply = llm_client.chat(messages)
+                thinking, clean = llm_client._extract_thinking(raw_reply or "")
+                state["reply_text"] = clean
+                state["thinking_text"] = thinking
                 state["reply_stream"] = None
             span.set_output({"status": "ok"})
         except Exception as exc:
             logger.error("LLM call failed: %s", exc)
             state["reply_text"] = f"❌ LLM error: {exc}"
+            state["thinking_text"] = ""
             state["reply_stream"] = None
             state["error"] = str(exc)
             span.set_output({"status": "error", "error": str(exc)})
 
-    # ── Extract and persist Mermaid diagram from LLM reply ───────────────
-    # When the LLM generates a To-Be Mermaid diagram (either from As-Is data
-    # or from QODE principles), extract it and save it as a .mmd file so the
-    # UI can render it and run_chain can return a valid diagram_path.
+    # ── Extract and persist Mermaid + DOT + draw.io from LLM reply ────────
+    # For To-Be / gap-analysis requests extract both formats from the LLM response
+    # and save them into the structured TO-BE/ output directories.
+    # diagram_path is overwritten with the To-Be path for non-as-is requests.
     if (
-        (_wants_diagram(state["user_message"]) or state.get("is_gap_analysis"))
-        and not state.get("diagram_path")
+        not state.get("is_asis")
+        and (_wants_diagram(state["user_message"]) or state.get("is_gap_analysis"))
         and not state.get("stream")
         and state.get("reply_text")
     ):
-        mermaid_src = _extract_mermaid(state["reply_text"])
+        reply_text  = state["reply_text"]
+        intent_key  = state.get("intent", "general")
+        is_gap      = state.get("is_gap_analysis", False)
+        stem_suffix = "_gap" if is_gap else ""
+        # Base filename: e.g. "process_tobe", "people_tobe", "technology_gap"
+        base_name   = f"{intent_key}{stem_suffix}"
+        dot_ref     = get_dot_path(intent_key) if intent_key != "general" else None
+
+        # ── Mermaid → TO-BE/Mermaid/ ─────────────────────────────────────
+        mermaid_src = _extract_mermaid(reply_text)
         if mermaid_src:
-            intent = state.get("intent", "general")
-            if intent != "general":
-                dot_file = get_dot_path(intent)
-                if dot_file:
-                    # gap analysis → _gap.mmd, to-be → _tobe.mmd
-                    suffix = "_gap.mmd" if state.get("is_gap_analysis") else "_tobe.mmd"
-                    out_path = dot_file.parent / f"{dot_file.stem}{suffix}"
+            tobe_mmd = TOBE_DIRS["mermaid"] / f"{base_name}.mmd"
+            try:
+                tobe_mmd.write_text(mermaid_src, encoding="utf-8")
+                state["diagram_path"] = str(tobe_mmd)
+                state["diagram_type"] = intent_key
+                logger.info("%s Mermaid saved: %s (%d chars)",
+                            "Gap" if is_gap else "To-Be", tobe_mmd, len(mermaid_src))
+                # Legacy root copy (keeps backward compat with render_diagram_card)
+                if dot_ref:
                     try:
-                        out_path.write_text(mermaid_src, encoding="utf-8")
-                        state["diagram_path"] = str(out_path)
-                        state["diagram_type"] = intent
-                        logger.info(
-                            "%s Mermaid diagram saved: %s (%d chars)",
-                            "Gap" if state.get("is_gap_analysis") else "To-Be",
-                            out_path, len(mermaid_src),
-                        )
-                    except Exception as save_err:
-                        logger.warning("Could not save Mermaid diagram: %s", save_err)
+                        legacy = dot_ref.parent / f"{dot_ref.stem}{'_gap' if is_gap else '_tobe'}.mmd"
+                        legacy.write_text(mermaid_src, encoding="utf-8")
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.warning("Could not save To-Be Mermaid: %s", e)
         else:
-            logger.warning(
-                "LLM reply did not contain a Mermaid diagram block for '%s' request.",
-                state.get("intent", "general"),
-            )
+            logger.warning("LLM reply contained no Mermaid block for '%s' request.", intent_key)
+
+        # ── DOT → TO-BE/DotGraph/ ────────────────────────────────────────
+        dot_src = _extract_dot(reply_text)
+        if dot_src:
+            tobe_dot = TOBE_DIRS["dot"] / f"{base_name}.dot"
+            try:
+                tobe_dot.write_text(dot_src, encoding="utf-8")
+                state["tobe_dot_path"] = str(tobe_dot)
+                logger.info("To-Be DOT saved: %s (%d chars)", tobe_dot, len(dot_src))
+                # ── draw.io → TO-BE/draw.io/ (derived from LLM DOT) ──────
+                try:
+                    drawio_text = dot_to_drawio(dot_src, intent_key)
+                    tobe_drawio = TOBE_DIRS["drawio"] / f"{base_name}.drawio"
+                    tobe_drawio.write_text(drawio_text, encoding="utf-8")
+                    logger.info("To-Be draw.io saved: %s", tobe_drawio)
+                except Exception as de:
+                    logger.warning("Could not generate To-Be draw.io: %s", de)
+            except Exception as e:
+                logger.warning("Could not save To-Be DOT: %s", e)
 
     # ── Eval scoring (async, non-blocking) ────────────────────────────────
     try:
@@ -466,19 +487,15 @@ def _build_graph():
         from langgraph.graph import StateGraph, END  # type: ignore[import]
 
         builder = StateGraph(AgentState)
-        builder.add_node("route", _node_route)
-        builder.add_node("asis", _node_asis)
-        builder.add_node("load_asis", _node_load_asis)   # grounding step before LLM
+        builder.add_node("route",      _node_route)
+        builder.add_node("load_asis",  _node_load_asis)   # grounding step before LLM
         builder.add_node("principles", _node_principles)
 
         builder.set_entry_point("route")
-        builder.add_conditional_edges(
-            "route",
-            lambda s: "asis" if s.get("is_asis") else "load_asis",
-            {"asis": "asis", "load_asis": "load_asis"},
-        )
-        builder.add_edge("asis", END)
-        builder.add_edge("load_asis", "principles")   # always ground before LLM
+        # Both As-Is and To-Be now go through load_asis → principles so the LLM
+        # always has verified ground-truth data and Graph-RAG context.
+        builder.add_edge("route",      "load_asis")
+        builder.add_edge("load_asis",  "principles")
         builder.add_edge("principles", END)
         return builder.compile()
     except ImportError:
@@ -523,21 +540,39 @@ over pillars, roles, tools, and activities.
   client-specific output.  **Refusing to generate a diagram is not acceptable.**
 - Never invent facts that contradict the verified As-Is data when it is present.
 
-## Diagram Output Format (MANDATORY when a diagram is requested)
-- **Always** emit a complete Mermaid flowchart inside a fenced code block: \
-  \`\`\`mermaid … \`\`\`.
-- Do NOT describe the diagram only in prose — render it.
+## Diagram Output Format (MANDATORY — BOTH formats required for every diagram request)
+- Emit a **Graphviz DOT graph** inside a fenced block: \`\`\`dot digraph G { … } \`\`\`
+- Emit a **Mermaid flowchart** inside a fenced block: \`\`\`mermaid flowchart … \`\`\`
+- **Both blocks are REQUIRED** — do NOT emit only one format. Output DOT first, then Mermaid.
+- Do NOT describe the diagram only in prose — render both formats.
 - Include labelled nodes for every key role / tool / process in the architecture.
-- Use `flowchart TD` for People and Process diagrams; `flowchart LR` for Technology diagrams.
+- DOT direction: `rankdir=TD` for People/Process; `rankdir=LR` for Technology.
+- Mermaid direction: `flowchart TD` for People/Process; `flowchart LR` for Technology.
 - For a **People** diagram: actor nodes → responsibility / ownership arrows.
 - For a **Process** diagram: activity nodes → sequence / dependency arrows, \
   annotate critical-path edges.
 - For a **Technology** diagram: tool/platform nodes → integration / data-flow arrows.
 
+## To-Be Diagram Derivation (MANDATORY when As-Is data is present)
+When producing a To-Be diagram you MUST:
+1. Start from the exact nodes and edges in the verified As-Is DOT graph.
+2. Classify each node: **KEPT** (unchanged), **IMPROVED** (enhanced), \
+   **REPLACED** (swapped for better tool/role), or **NEW** (not in As-Is).
+3. In the **DOT graph** colour-code with `style=filled`:
+   - NEW → `fillcolor="#34d399"`  IMPROVED → `fillcolor="#60a5fa"`
+   - REPLACED/REMOVED → `fillcolor="#f87171"`  KEPT → default
+4. In the **Mermaid diagram** add classDef at the end:
+   `classDef kept fill:#1e3a5f,stroke:#3b82f6,color:#e0e7ff`
+   `classDef improved fill:#1d4ed8,stroke:#60a5fa,color:#fff`
+   `classDef new fill:#065f46,stroke:#34d399,color:#fff`
+   `classDef replaced fill:#7f1d1d,stroke:#f87171,color:#fff`
+   Apply with `class NodeId improved` / `class NodeId new` / etc.
+5. Add a short **Legend** section after both diagrams.
+
 Your responsibilities:
 - When a user asks for IMPROVEMENTS, ANALYSIS, or a TO-BE diagram → reason across the \
   relevant Engineering Principle × Discipline intersection using the provided context, \
-  then emit the Mermaid diagram.
+  then emit BOTH DOT and Mermaid diagrams.
 - Prefer the **Knowledge Graph Context** (graph traversal) over Semantic Context \
   for relationship/structural questions.
 - Ground every answer in the retrieved context. Be concise and actionable.
@@ -551,6 +586,7 @@ def _build_messages(
     principle_ctx: dict | None = None,
     asis_diagram_data: str | None = None,
     gap_items: list[str] | None = None,
+    is_asis: bool = False,
 ) -> list[dict]:
     graph_chunks = [c for c in context_chunks if c.get("source") == "graph"]
     vector_chunks = [c for c in context_chunks if c.get("source") != "graph"]
@@ -584,44 +620,79 @@ def _build_messages(
         )
 
     # ── As-Is ground truth ── injected LAST so it is closest to the user turn
-    # and the LLM cannot overlook it.  This is the primary anti-hallucination guard.
     if asis_diagram_data:
-        system_content += (
-            "\n\n---\n## ⚠️ As-Is Architecture — Verified Ground Truth\n\n"
-            "The following DOT graph is the **verified current-state architecture** "
-            "extracted directly from the client's QODE questionnaire.\n"
-            "**Base all To-Be recommendations on this data. "
-            "Do NOT invent roles, tools, or processes absent from it.**\n"
-            "When a To-Be diagram is requested, analyse the As-Is state and emit a "
-            "`mermaid` flowchart (```mermaid … ```) showing the recommended target-state "
-            "with explicit improvement annotations.\n\n"
-            "```dot\n"
-            + asis_diagram_data
-            + "\n```"
-        )
+        if is_asis:
+            # As-Is analysis mode: explain + assess current state, no To-Be diagram
+            system_content += (
+                "\n\n---\n## ⚠️ As-Is Architecture — Verified Ground Truth\n\n"
+                "The following DOT graph is the **verified current-state architecture** "
+                "extracted directly from the client's QODE questionnaire.\n\n"
+                "```dot\n"
+                + asis_diagram_data
+                + "\n```\n\n"
+                "## 📊 As-Is Analysis Mode — ACTIVE\n\n"
+                "The diagram has already been rendered by the QODE diagram engine.\n"
+                "**Your role**: Provide a structured analysis of the current-state architecture above.\n"
+                "Structure your response as:\n"
+                "1. **Architecture Summary** — what the current state looks like\n"
+                "2. **Key Components** — list all roles / tools / processes found\n"
+                "3. **Strengths** — what is working well\n"
+                "4. **Gaps & Areas for Attention** — missing capabilities or improvement areas\n"
+                "5. **Quick Wins** — 2–3 immediate improvements with low effort / high impact\n\n"
+                "**Do NOT generate a new Mermaid diagram.** "
+                "Provide structured analysis in well-formatted prose."
+            )
+        else:
+            system_content += (
+                "\n\n---\n## ⚠️ As-Is Architecture — Verified Ground Truth\n\n"
+                "The following DOT graph is the **verified current-state architecture** "
+                "extracted directly from the client's QODE questionnaire.\n"
+                "**Base ALL To-Be recommendations on this exact data. "
+                "Do NOT invent roles, tools, or processes absent from it.**\n\n"
+                "```dot\n"
+                + asis_diagram_data
+                + "\n```\n\n"
+                "## \U0001f52e To-Be Generation Instructions\n\n"
+                "You MUST produce **both** a DOT graph (```dot\u2026```) and a Mermaid "
+                "flowchart (```mermaid\u2026```) for the To-Be architecture:\n\n"
+                "1. Parse every node and edge from the As-Is DOT above.\n"
+                "2. Classify each node as **KEPT**, **IMPROVED**, **REPLACED**, or **NEW**.\n"
+                "3. DOT block: colour-code with `style=filled fillcolor=\"#34d399\"` (NEW), "
+                "`fillcolor=\"#60a5fa\"` (IMPROVED), `fillcolor=\"#f87171\"` (REPLACED).\n"
+                "4. Mermaid block: apply classDef `new`, `improved`, `replaced`, `kept`.\n"
+                "5. Both blocks are MANDATORY \u2014 output DOT first, then Mermaid.\n"
+            )
     else:
-        system_content += (
-            "\n\n---\n## 📋 As-Is Architecture — Not Loaded (Best-Practice Mode)\n\n"
-            "No client questionnaire has been loaded for this session.\n"
-            "**You MUST NOT refuse to generate a To-Be diagram.**  "
-            "Proceed as follows:\n\n"
-            "1. Use the **QODE Knowledge Graph Context** above (pillars, roles, tools, "
-            "activities) as the source of structural best practices.\n"
-            "2. Apply the **9 Engineering Principles × 3 Disciplines** framework to reason "
-            "through what a mature, modern To-Be architecture looks like for the requested domain.\n"
-            "3. Produce a comprehensive To-Be architecture recommendation.\n"
-            "4. **Mandatory**: Output a complete `mermaid` flowchart (\'\'\'mermaid … \'\'\') "
-            "showing the recommended target-state architecture with nodes for key "
-            "roles / tools / processes and labelled arrows.\n"
-            "5. Label your output: **Best-Practice To-Be Architecture (QODE Framework)** "
-            "— based on QODE principles, not a specific client questionnaire."
-        )
+        if is_asis:
+            system_content += (
+                "\n\n---\n## 📊 As-Is Analysis Mode — No Questionnaire Loaded\n\n"
+                "No client questionnaire has been uploaded. Provide a general best-practice "
+                "analysis of what a mature current-state architecture looks like for the "
+                "requested discipline, based on the QODE Knowledge Graph Context above.\n"
+                "Structure your response with: Summary, Key Components, Strengths, Gaps, Quick Wins.\n"
+                "**Do NOT generate a Mermaid diagram.**"
+            )
+        else:
+            system_content += (
+                "\n\n---\n## 📋 As-Is Architecture — Not Loaded (Best-Practice Mode)\n\n"
+                "No client questionnaire has been loaded for this session.\n"
+                "**You MUST NOT refuse to generate a To-Be diagram.**  "
+                "Proceed as follows:\n\n"
+                "1. Use the **QODE Knowledge Graph Context** above (pillars, roles, tools, "
+                "activities) as the source of structural best practices.\n"
+                "2. Apply the **9 Engineering Principles × 3 Disciplines** framework to reason "
+                "through what a mature, modern To-Be architecture looks like for the requested domain.\n"
+                "3. Produce a comprehensive To-Be architecture recommendation.\n"
+                "4. **Mandatory**: Output BOTH a DOT graph (```dot\u2026```) AND a Mermaid "
+                "flowchart (```mermaid\u2026```) showing the recommended target-state "
+                "architecture with nodes for key roles / tools / processes and labelled arrows.\n"
+                "5. Label your output: **Best-Practice To-Be Architecture (QODE Framework)** "
+                "— based on QODE principles, not a specific client questionnaire."
+            )
 
     messages: list[dict] = [{"role": "system", "content": system_content}]
     # ── Gap analysis overlay ─────────────────────────────────────────────
-    # Injected as an extra system message (not inside the main system prompt)
-    # so it has the highest priority and the LLM processes it as a late
-    # constraint — the same pattern used by tool-call frameworks.
+
     if gap_items:
         removed_str = ", ".join(f"’{item}’" for item in gap_items)
         gap_sys = (
@@ -648,8 +719,16 @@ def _build_messages(
             "For each High-risk gap, provide one or two concrete, actionable mitigations."
         )
         messages.append({"role": "system", "content": gap_sys})
-    for turn in history[-6:]:
-        messages.append(turn)
+    # ── Inject conversation history ──────────────────────────────────────
+    # Pass all turns in the session (up to 40 messages = ~20 exchanges) so
+    # the LLM retains full context throughout the session.
+    # Messages are sanitized to only {role, content} — extra keys like
+    # diagram_path, tobe_dot_path, eval_score must NOT reach the LLM API.
+    for turn in history[-40:]:
+        role = turn.get("role", "user")
+        content = turn.get("content", "")
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": user_message})
     return messages
 
@@ -700,7 +779,9 @@ def run_chain(
     return {
         "text": final_state.get("reply_text", ""),
         "stream": final_state.get("reply_stream"),
+        "thinking_text": final_state.get("thinking_text", ""),
         "diagram_path": final_state.get("diagram_path"),
+        "tobe_dot_path": final_state.get("tobe_dot_path"),
         "diagram_type": final_state.get("diagram_type"),
         "mode": final_state.get("mode", "principles"),
         "eval_score": final_state.get("eval_score"),
@@ -710,8 +791,6 @@ def run_chain(
 def _fallback_run(state: AgentState) -> AgentState:
     """Direct execution fallback when LangGraph is not available."""
     state = _node_route(state)
-    if state.get("is_asis"):
-        return _node_asis(state)
-    # Load As-Is ground truth BEFORE calling the LLM to prevent hallucination
+    # All requests (As-Is and To-Be) go through load_asis → principles
     state = _node_load_asis(state)
     return _node_principles(state)

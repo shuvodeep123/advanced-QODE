@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Token budget — override via TOKEN_BUDGET env var or .env
 # ---------------------------------------------------------------------------
-DEFAULT_BUDGET: int = int(os.environ.get("TOKEN_BUDGET", "248000"))
+DEFAULT_BUDGET: int = int(os.environ.get("TOKEN_BUDGET", "7900000"))
 
 # ---------------------------------------------------------------------------
 # Thread-safe usage store
@@ -60,6 +60,10 @@ class TokenUsage:
     call_count:        int = 0
     # per-model breakdown  {model_name: total_tokens}
     by_model:          dict[str, int] = field(default_factory=dict)
+    # last single-call counts (reset on each record_call)
+    last_call_prompt:     int = 0
+    last_call_completion: int = 0
+    last_call_total:      int = 0
 
     def pct_used(self, budget: int = DEFAULT_BUDGET) -> float:
         """Return percentage of budget consumed (0.0 – 100.0)."""
@@ -85,6 +89,9 @@ def get_usage() -> TokenUsage:
             total_tokens=_usage.total_tokens,
             call_count=_usage.call_count,
             by_model=dict(_usage.by_model),
+            last_call_prompt=_usage.last_call_prompt,
+            last_call_completion=_usage.last_call_completion,
+            last_call_total=_usage.last_call_total,
         )
 
 
@@ -105,18 +112,23 @@ def record_call(
     Returns:
         Updated :class:`TokenUsage` snapshot.
     """
+    # Treat None (returned by some endpoints) as 0 to avoid TypeError
+    pt = int(prompt_tokens or 0)
+    ct = int(completion_tokens or 0)
     with _lock:
-        _usage.prompt_tokens     += prompt_tokens
-        _usage.completion_tokens += completion_tokens
-        _usage.total_tokens      += prompt_tokens + completion_tokens
+        _usage.prompt_tokens     += pt
+        _usage.completion_tokens += ct
+        _usage.total_tokens      += pt + ct
         _usage.call_count        += 1
         _usage.by_model[model]    = (
-            _usage.by_model.get(model, 0) + prompt_tokens + completion_tokens
+            _usage.by_model.get(model, 0) + pt + ct
         )
+        _usage.last_call_prompt     = pt
+        _usage.last_call_completion = ct
+        _usage.last_call_total      = pt + ct
         logger.debug(
             "Token usage recorded — prompt=%d completion=%d total=%d (session=%d)",
-            prompt_tokens, completion_tokens,
-            prompt_tokens + completion_tokens, _usage.total_tokens,
+            pt, ct, pt + ct, _usage.total_tokens,
         )
         return TokenUsage(
             prompt_tokens=_usage.prompt_tokens,
@@ -124,6 +136,9 @@ def record_call(
             total_tokens=_usage.total_tokens,
             call_count=_usage.call_count,
             by_model=dict(_usage.by_model),
+            last_call_prompt=_usage.last_call_prompt,
+            last_call_completion=_usage.last_call_completion,
+            last_call_total=_usage.last_call_total,
         )
 
 
@@ -135,6 +150,9 @@ def reset() -> None:
         _usage.total_tokens      = 0
         _usage.call_count        = 0
         _usage.by_model.clear()
+        _usage.last_call_prompt     = 0
+        _usage.last_call_completion = 0
+        _usage.last_call_total      = 0
     logger.info("Token counter reset.")
 
 

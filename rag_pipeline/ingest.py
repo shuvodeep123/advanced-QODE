@@ -137,7 +137,11 @@ _QODE_PILLARS: list[dict[str, Any]] = [
 # ---------------------------------------------------------------------------
 # Embedding function
 # ---------------------------------------------------------------------------
-_EMBED_MODEL = "all-MiniLM-L6-v2"
+# Override via EMBED_MODEL in .env to switch models without code changes.
+# NOTE: changing the model invalidates any existing ChromaDB collection —
+#       delete ./chroma_db and re-ingest to rebuild with the new embeddings.
+import os as _os
+_EMBED_MODEL: str = _os.environ.get("EMBED_MODEL", "google/embeddinggemma-300m")
 
 
 def _get_embedding_function() -> embedding_functions.SentenceTransformerEmbeddingFunction:

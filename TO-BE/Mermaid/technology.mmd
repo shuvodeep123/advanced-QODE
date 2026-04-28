@@ -1,0 +1,122 @@
+flowchart LR
+
+    %% ── REQUIREMENT ENGINEERING ──────────────────────────────────────────
+    subgraph REQ["① Requirement Engineering"]
+        Confluence["Confluence\n[IMPROVED]"]
+        Jira["Jira\n[IMPROVED]"]
+    end
+
+    %% ── CODE / DATA ENGINEERING ──────────────────────────────────────────
+    subgraph CODE["② Code / Data Engineering"]
+        VSCode["VS Code + Plugins\n[REPLACED: Text Editor]"]
+        SonarQube["SonarQube Enterprise\n[IMPROVED]"]
+        GitHubGitLab["GitHub / GitLab\nGitOps enabled\n[IMPROVED]"]
+        Maven["Maven\n[IMPROVED]"]
+        Nexus["Nexus / Artifactory\n[NEW]"]
+        Flyway["Flyway\n[KEPT]"]
+    end
+
+    %% ── QUALITY ENGINEERING ──────────────────────────────────────────────
+    subgraph QUAL["③ Quality Engineering"]
+        Jbehave["JBehave\n[KEPT]"]
+        Selenium["Selenium\n[IMPROVED]"]
+        Playwright["Playwright\n[NEW]"]
+        Jmeter["JMeter\n[IMPROVED]"]
+        k6["k6\n[NEW]"]
+    end
+
+    %% ── BUILD & RELEASE ENGINEERING ──────────────────────────────────────
+    subgraph BUILD["④ Build & Release Engineering"]
+        XLDeploy["XL Deploy\n[IMPROVED]"]
+        ArgoCD["ArgoCD\nGitOps CD\n[NEW]"]
+    end
+
+    %% ── ENVIRONMENT ENGINEERING ──────────────────────────────────────────
+    subgraph ENV["⑤ Environment Engineering"]
+        Puppet["Puppet\n[IMPROVED]"]
+        Terraform["Terraform\nIaC\n[NEW]"]
+        Vault["HashiCorp Vault\nSecrets Mgmt\n[NEW]"]
+    end
+
+    %% ── SERVICE OPS ──────────────────────────────────────────────────────
+    subgraph SVCOPS["⑥ Service Ops"]
+        ServiceNow["ServiceNow\nAIOps enabled\n[IMPROVED]"]
+        Datadog["Datadog APM\n[NEW]"]
+        OverOps["OverOps\n[REPLACED]"]
+    end
+
+    %% ── SECURITY ENGINEERING ─────────────────────────────────────────────
+    subgraph SEC["⑦ Security Engineering"]
+        OWASPZAP["OWASP ZAP\nDAST\n[NEW]"]
+        Trivy["Trivy\nContainer & IaC Scan\n[NEW]"]
+    end
+
+    %% ── REQUIREMENT ENGINEERING FLOWS ────────────────────────────────────
+    Confluence   -->|"A24 A22 A2 A4.0"| Jira
+    Jira         -->|"A29"| Confluence
+
+    %% ── CONFLUENCE DOWNSTREAM ────────────────────────────────────────────
+    Confluence   -->|"A39"| Jbehave
+    Confluence   -->|"A2 A4.0"| Puppet
+    Confluence   -->|"IaC specs"| Terraform
+
+    %% ── CODE ENGINEERING FLOWS ───────────────────────────────────────────
+    Jira         -->|"A330"| VSCode
+    VSCode       -->|"A332"| Jira
+    VSCode       -->|"A206 + IDE SAST"| SonarQube
+    SonarQube    -->|"A226 quality gate"| GitHubGitLab
+    GitHubGitLab -->|"A229 build trigger"| Maven
+    Maven        -->|"artefact publish"| Nexus
+    Nexus        -->|"artefact fetch"| XLDeploy
+    GitHubGitLab -->|"A229 test trigger"| Selenium
+    Flyway       -->|"A232"| Selenium
+
+    %% ── QUALITY ENGINEERING FLOWS ────────────────────────────────────────
+    Jbehave      -->|"A46 A47"| Selenium
+    Jbehave      -->|"BDD → E2E"| Playwright
+    Jbehave      -->|"A46 A47"| Jmeter
+    Jbehave      -->|"BDD → perf"| k6
+    Jira         -->|"A50.0"| Jmeter
+    Jira         -->|"perf trigger"| k6
+    Selenium     -->|"A305 A306.0"| Jira
+    Playwright   -->|"E2E results"| Jira
+    Jmeter       -->|"A309.0 A310.0"| Jira
+    k6           -->|"perf results"| Jira
+
+    %% ── BUILD & RELEASE FLOWS ────────────────────────────────────────────
+    Jira         -->|"A334 release gate"| XLDeploy
+    GitHubGitLab -->|"GitOps sync"| ArgoCD
+    ArgoCD       -->|"CD orchestration"| XLDeploy
+    XLDeploy     -->|"deploy events"| Datadog
+
+    %% ── ENVIRONMENT ENGINEERING FLOWS ────────────────────────────────────
+    ServiceNow   -->|"A128 A273.0"| Puppet
+    Puppet       -->|"A115 A113 A136.0"| ServiceNow
+    ServiceNow   -->|"A164"| VSCode
+    ServiceNow   -->|"A164"| Flyway
+    Terraform    -->|"provision → config"| Puppet
+    Vault        -->|"secrets injection"| Terraform
+    Vault        -->|"CI secrets"| GitHubGitLab
+
+    %% ── SECURITY FLOWS ───────────────────────────────────────────────────
+    GitHubGitLab -->|"container scan"| Trivy
+    GitHubGitLab -->|"DAST trigger"| OWASPZAP
+    Trivy        -->|"vuln tickets"| Jira
+    OWASPZAP     -->|"DAST findings"| Jira
+
+    %% ── OBSERVABILITY FLOWS ──────────────────────────────────────────────
+    Datadog      -->|"alert → incident"| Jira
+    Datadog      -->|"ITSM integration"| ServiceNow
+    OverOps      -.->|"A377.0 legacy"| XLDeploy
+    XLDeploy     -.->|"A352 A354.0 legacy"| OverOps
+
+    %% ── CLASS DEFINITIONS ────────────────────────────────────────────────
+    classDef kept     fill:#1e3a5f,stroke:#3b82f6,color:#e0e7ff
+    classDef improved fill:#1d4ed8,stroke:#60a5fa,color:#fff
+    classDef new      fill:#065f46,stroke:#34d399,color:#fff
+    classDef replaced fill:#7f1d1d,stroke:#f87171,color:#fff
+
+    class Jbehave,Flyway kept
+    class Confluence,Jira,SonarQube,GitHubGitLab,Maven,Selenium,Jmeter,Puppet,ServiceNow,XLDeploy improved
+    class VSCode,Nexus,Playwright,k6,ArgoCD,Terraform,Vault,Datadog,OWASPZAP,Trivy new
+    class OverOps replaced

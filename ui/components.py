@@ -253,21 +253,79 @@ def render_mermaid(mmd_text: str, dtype: str, key: str = "") -> None:
             key=f"dl_mmd_{key}",
         )
     with col2:
-        import urllib.parse
-        encoded = urllib.parse.quote(mmd_text)
         st.markdown(
             f'<a href="https://mermaid.live/edit#base64:{_b64(mmd_text)}" target="_blank" '
             f'style="display:block;text-align:center;background:rgba(139,92,246,0.1);'
             f'border:1px solid rgba(139,92,246,0.3);border-radius:6px;padding:6px 0;'
-            f'font-size:0.8125rem;color:#8b5cf6;text-decoration:none;">🔗 Open in Mermaid Live</a>',
+            f'font-size:0.8125rem;color:#8b5cf6;text-decoration:none;">\U0001f517 Open in mermaid.ai\/app</a>',
             unsafe_allow_html=True,
         )
 
 
 def _b64(text: str) -> str:
-    """Base64-encode text for Mermaid Live editor URL."""
+    """Base64-encode text for Mermaid Live / edotor.net URL."""
     import base64
     return base64.urlsafe_b64encode(text.encode()).decode()
+
+
+# ---------------------------------------------------------------------------
+# DOT diagram renderer (To-Be)
+# ---------------------------------------------------------------------------
+
+def render_dot_diagram(dot_text: str, dtype: str, key: str = "") -> None:
+    """Render a To-Be DOT graph card with inline preview + edotor.net link.
+
+    Shows the raw DOT source, a download button, and an "Open in edotor.net"
+    button that pre-loads the diagram in the online Graphviz editor.
+    """
+    import base64
+
+    title = f"{dtype.title()} To-Be Architecture \u2014 DOT Graph"
+    b64_dot = base64.urlsafe_b64encode(dot_text.encode()).decode()
+    edotor_url = f"https://edotor.net/?engine=dot#{b64_dot}"
+
+    st.markdown(
+        f"""
+        <div class="diagram-card">
+          <div class="diagram-card-header">
+            <span class="diagram-card-title">\U0001f5fa\ufe0f {title}</span>
+            <span style="font-size:0.7rem;color:#f59e0b;font-weight:600;">
+              \u25c8 Graphviz DOT
+            </span>
+          </div>
+          <div style="padding:10px 12px;background:rgba(245,158,11,0.07);
+                border-radius:8px;border:1px solid rgba(245,158,11,0.2);
+                font-size:0.78rem;color:#8b949e;">
+            \U0001f4a1 DOT graph generated from To-Be LLM output.
+            Click <strong>Open in edotor.net</strong> to visualise interactively.
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    with st.expander("\U0001f9f1 View To-Be DOT source", expanded=False):
+        st.code(dot_text, language="dot")
+
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        st.download_button(
+            label="\u2b07\ufe0f Download DOT (.dot)",
+            data=dot_text,
+            file_name=f"{dtype}_tobe_diagram.dot",
+            mime="text/plain",
+            use_container_width=True,
+            key=f"dl_tobe_dot_{key}",
+        )
+    with col2:
+        st.markdown(
+            f'<a href="{edotor_url}" target="_blank" '
+            f'style="display:block;text-align:center;background:rgba(245,158,11,0.1);'
+            f'border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:6px 0;'
+            f'font-size:0.8125rem;color:#f59e0b;text-decoration:none;">'
+            f'\U0001f517 Open in edotor.net</a>',
+            unsafe_allow_html=True,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -362,9 +420,10 @@ def render_drawio(drawio_text: str, dtype: str, key: str = "") -> None:
     import base64
 
     title = f"{dtype.title()} Architecture Diagram"
-    # diagrams.net can open inline XML via the ?xml= query param (URL-safe base64)
-    b64_xml = base64.urlsafe_b64encode(drawio_text.encode()).decode()
-    diagrams_url = f"https://app.diagrams.net/?xml={b64_xml}"
+    # diagrams.net opens inline XML via the #xml= fragment (standard base64).
+    # The ?xml= query param is ignored; the fragment is the correct approach.
+    b64_xml = base64.b64encode(drawio_text.encode()).decode()
+    diagrams_url = f"https://app.diagrams.net/#xml={b64_xml}"
 
     st.markdown(
         f"""
@@ -529,6 +588,55 @@ def render_info_card(label: str, value: str, color: str = "#f0f6fc") -> None:
 
 
 # ---------------------------------------------------------------------------
+# Active model card
+# ---------------------------------------------------------------------------
+
+def render_model_card(model_name: str, base_url: str = "") -> None:
+    """Render a styled card showing the active LLM model name."""
+    # e.g. "zai-org/glm-4.7" → org="zai-org", short="glm-4.7"
+    if "/" in model_name:
+        org, short = model_name.rsplit("/", 1)
+        org_html = f'<span style="font-size:0.65rem;color:#484f58;">{html.escape(org)}/</span>'
+    else:
+        short = model_name
+        org_html = ""
+
+    host = ""
+    if base_url:
+        try:
+            from urllib.parse import urlparse as _urlparse
+            host = _urlparse(base_url).netloc or base_url
+        except Exception:
+            host = base_url
+
+    host_html = (
+        f'<div style="font-size:0.62rem;color:#484f58;margin-top:2px;'
+        f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+        f'{html.escape(host)}</div>'
+        if host else ""
+    )
+
+    st.markdown(
+        f"""
+        <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;
+                    padding:8px 10px;margin-bottom:4px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:1rem;">🤖</span>
+            <div style="overflow:hidden;">
+              <div style="font-size:0.75rem;font-weight:600;color:#60a5fa;
+                          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                {org_html}{html.escape(short)}
+              </div>
+              {host_html}
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Token counter widget
 # ---------------------------------------------------------------------------
 
@@ -539,6 +647,9 @@ def render_token_counter(
     budget: int,
     call_count: int,
     by_model: dict | None = None,
+    last_call_prompt: int = 0,
+    last_call_completion: int = 0,
+    last_call_total: int = 0,
 ) -> None:
     """Render a real-time token usage panel in the sidebar.
 
@@ -655,6 +766,38 @@ def render_token_counter(
         """,
         unsafe_allow_html=True,
     )
+
+    # ⚡ Last Iteration card (only shown after at least one LLM call)
+    if last_call_total > 0:
+        lc_p = f"{last_call_prompt:,}"
+        lc_c = f"{last_call_completion:,}"
+        lc_t = f"{last_call_total:,}"
+        st.markdown(
+            f"""
+            <div style="background:rgba(96,165,250,0.07);border:1px solid rgba(96,165,250,0.2);
+                        border-radius:6px;padding:6px 8px;margin-bottom:6px;">
+              <div style="font-size:0.65rem;color:#60a5fa;font-weight:700;
+                          text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">
+                ⚡ Last Iteration
+              </div>
+              <div style="display:flex;gap:4px;">
+                <div style="flex:1;text-align:center;">
+                  <div style="font-size:0.6rem;color:#8b949e;">Prompt</div>
+                  <div style="font-size:0.75rem;font-weight:600;color:#3b82f6;">{lc_p}</div>
+                </div>
+                <div style="flex:1;text-align:center;">
+                  <div style="font-size:0.6rem;color:#8b949e;">Compl.</div>
+                  <div style="font-size:0.75rem;font-weight:600;color:#8b5cf6;">{lc_c}</div>
+                </div>
+                <div style="flex:1;text-align:center;">
+                  <div style="font-size:0.6rem;color:#8b949e;">Total</div>
+                  <div style="font-size:0.75rem;font-weight:600;color:#60a5fa;">{lc_t}</div>
+                </div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     # Per-model breakdown (collapsible, only show when multiple models used)
     if by_model:

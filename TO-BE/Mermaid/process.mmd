@@ -1,0 +1,107 @@
+flowchart TD
+    %% ==== KEPT nodes (default style) ====
+    E0[Requirement (Jira)]
+    E2[BRS to SRS (Confluence)]
+    E3[BRS to SRS (Confluence)]
+    E4[IT handbook to SRS (Confluence)]
+    E5[BRS to SRS (Confluence)]
+    E6[SRS to SRS (Confluence)]
+    E7[SRS to SRS (Confluence)]
+    E8[BRS/SRS to BRS/SRS (Confluence)]
+    E9[Requirements to Requirements (Jira)]
+    E10[Requirements to SRS (Jira)]
+    E11[Requirements to SRS (Confluence)]
+    E12[Requirements to SRS (Confluence)]
+    E13[Requirements to nan (Confluence)]
+    E14[Requirements to Test case (Jbehave)]
+    E15[Requirements to Test case (Jbehave)]
+    E16[Test case to Test script (Jbehave)]
+    E17[Test case to Test script (Jbehave)]
+    E18[Test case to Requirements (Jira)]
+    E19[Requirements to Infra as code (Puppet)]
+    E20[Requirements to Infra as code (Puppet)]
+    E21[Template to Environment (Puppet)]
+    E22[Template to Infra as code (Puppet)]
+    E23[Template to Service request (ServiceNow)]
+    E24[Service request to Infra as code (ServiceNow)]
+    E25[Infra as code to Environment (Puppet)]
+    E26[Environment to Service request (ServiceNow)]
+    E27[Requirements to Code (Text editor (UNIX/LINUX))]
+    E28[Design to Code (Flyway)]
+    E29[Code to Code (SonarQube)]
+    E30[Code to Code (GitHub / GitLab)]
+    E31[Code to Code (Flyway)]
+    E32[Code to Code (Maven)]
+    E33[Code to Test result (Selenium)]
+    E34[Code to Test result (Selenium)]
+    E35[Service request to Environment (ServiceNow)]
+    E36[Requirements to Test case (Jbehave)]
+    E37[Test case to Test script (Selenium)]
+    E38[Test case to Test script (Selenium)]
+    E39[Test case to Test script (Jmeter)]
+    E40[Test case to Test script (Jmeter)]
+    E42[Test case to Test result (Selenium)]
+    E43[Test script to Test result (Jmeter)]
+    E44[Test case to Test result (Jmeter)]
+    E45[Test result to Defect (Jira)]
+    E46[Defect to Checklist (Jira)]
+    E47[Defect to Code (Text editor (UNIX/LINUX))]
+    E48[Defect to Code (Jira)]
+    E49[Test result to Checklist (Jira)]
+    E50[Requirements to Release plan (Jira)]
+    E51[Requirements to Release plan (Jira)]
+    E52[Service request to Code (XL Deploy)]
+    E53[Service request to Code (XL Deploy)]
+    E54[Service request to Code (XL Deploy)]
+    E55[Service request to Code (XL Deploy)]
+    E56[Service request to Code (XL Deploy)]
+    E57[Service request to Code (XL Deploy)]
+    E58[Service request to Code (XL Deploy)]
+    E59[Service request to Code (XL Deploy)]
+    E60[Code to Report (OverOps)]
+
+    %% ==== IMPROVED nodes ====
+    classDef improved fill:#1d4ed8,stroke:#60a5fa,color:#fff;
+    E1[Requirements to BRS (Confluence)]:::improved
+    E30:::improved
+
+    %% ==== REPLACED nodes ====
+    classDef replaced fill:#7f1d1d,stroke:#f87171,color:#fff;
+    E41[Test script to Test result (Selenium)]:::replaced
+
+    %% ==== NEW nodes ====
+    classDef new fill:#065f46,stroke:#34d399,color:#fff;
+    E_NEW1[Automated Traceability Validation (Jira Automation)]:::new
+    E_NEW2[Test Result Aggregation (OverOps)]:::new
+
+    %% ==== Edges (process flow) ====
+    E0 --> E_NEW1 --> E1
+    E1 --> E2
+    E2 --> E3
+    E3 --> E5
+    E5 --> E6
+    E6 --> E7
+    E7 --> E8
+    E8 --> E9
+    E9 --> E10
+    E9 --> E11
+    E9 --> E12
+    E11 --> E13
+    E12 --> E13
+    E13 --> E14
+    E13 --> E15
+    E14 --> E16
+    E15 --> E16
+    E16 --> E37
+    E16 --> E39
+    E37 --> E41
+    E39 --> E43
+    %% REPLACED -> NEW path
+    E37 --> E_NEW2
+    E_NEW2 --> E45
+    %% keep rest of original flow (truncated for brevity)
+    %% ...
+
+    %% ==== Legend (process) ====
+    classDef kept fill:#1e3a5f,stroke:#3b82f6,color:#e0e7ff;
+    class E0,E2,E3,E4,E5,E6,E7,E8,E9,E10,E11,E12,E13,E14,E15,E16,E17,E18,E19,E20,E21,E22,E23,E24,E25,E26,E27,E28,E29,E30,E31,E32,E33,E34,E35,E36,E38,E40,E42,E44,E45,E46,E47,E48,E49,E50,E51,E52,E53,E54,E55,E56,E57,E58,E59,E60 kept

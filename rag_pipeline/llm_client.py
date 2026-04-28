@@ -25,21 +25,39 @@ load_dotenv(override=True)
 # load_dotenv(override=True) call anywhere before the first LLM request
 # is always picked up, even if this module was imported earlier.
 # ---------------------------------------------------------------------------
-MODEL = os.environ.get("HF_MODEL", "claude-opus-4-7")
+MODEL = os.environ.get("HF_MODEL")
+
+
+def _extract_thinking(text: str) -> tuple[str, str]:
+    """Extract ``<think>…</think>`` block from an LLM reply.
+
+    Many reasoning models (GLM, Qwen, DeepSeek-R1) emit a chain-of-thought
+    inside ``<think>…</think>`` tags before the actual answer.  This helper
+    separates the two so the UI can display them independently.
+
+    Args:
+        text: Raw LLM output, potentially containing ``<think>`` tags.
+
+    Returns:
+        ``(thinking, clean_text)`` where *thinking* is the inner content of
+        the first ``<think>`` block (empty string if absent) and *clean_text*
+        is the remaining text with the ``<think>`` block stripped.
+    """
+    import re as _re
+    m = _re.search(r"<think>(.*?)</think>", text, _re.DOTALL | _re.IGNORECASE)
+    if not m:
+        return "", text.strip()
+    thinking = m.group(1).strip()
+    clean = (text[: m.start()] + text[m.end() :]).strip()
+    return thinking, clean
 
 
 def _validate_config(api_key: str | None) -> None:
-    """Raise a clear error if the API key is missing or looks wrong."""
-    if not api_key:
+    """Raise a clear error if the API key is missing."""
+    if not api_key:     
         raise EnvironmentError(
             "API token is not configured. "
             "Set HF_TOKEN in .env or export HF_TOKEN=<your-token>."
-        )
-    if api_key.startswith("hf_"):
-        raise EnvironmentError(
-            "HF_TOKEN starts with 'hf_' — this is a raw HuggingFace token and will "
-            "be rejected by the LiteLLM proxy.  Please set HF_TOKEN to the 'sk-' "
-            "virtual key issued by your LiteLLM / KodeKloud endpoint in .env."
         )
 
 
@@ -50,28 +68,18 @@ def _get_client() -> OpenAI:
     """Return a cached OpenAI client pointed at the configured endpoint.
 
     Reads HF_TOKEN and HF_BASE_URL fresh from the environment on every
-    cold-start so that .env changes take effect without restarting Python.
-    """
+    cold-start so that .env changes take effect without restarting Python"""
     global _client
     if _client is None:
         api_key = os.environ.get("HF_TOKEN")
-        base_url = os.environ.get("HF_BASE_URL", "https://api.ai.kodekloud.com/v1")
+        base_url = os.environ.get("HF_BASE_URL")
         _validate_config(api_key)
         _client = OpenAI(api_key=api_key, base_url=base_url)
     return _client
 
 
 def chat(messages: list[dict], model: str = MODEL) -> str:
-    """Send *messages* to the LLM and return the full response text.
-
-    Args:
-        messages: OpenAI-format message list, e.g.
-                  [{"role": "system", "content": "..."}, {"role": "user", ...}]
-        model:    Model identifier (default: ``MODEL``).
-
-    Returns:
-        The assistant's reply as a plain string.
-    """
+    """Send *messages* to the LLM and return the full response text."""
     response = _get_client().chat.completions.create(
         model=model,
         messages=messages,
@@ -127,8 +135,8 @@ def chat_stream(messages: list[dict], model: str = MODEL) -> Iterator[str]:
         usage = getattr(chunk, "usage", None)
         if usage and not usage_recorded:
             record_call(
-                prompt_tokens=usage.prompt_tokens,
-                completion_tokens=usage.completion_tokens,
+                prompt_tokens=usage.prompt_tokens or 0,
+                completion_tokens=usage.completion_tokens or 0,
                 model=model,
             )
             usage_recorded = True

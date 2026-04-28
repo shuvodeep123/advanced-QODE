@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile version="20.0.0">
+  <diagram name="People Architecture">
+    <mxGraphModel dx="1034" dy="546" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="2" value="Business" style="shape=mxgraph.basic.person;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fillColor=#ADD8E6;" vertex="1" parent="1"><mxGeometry x="80" y="80" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="3" value="Propensity: platform/policy design emphasis" style="shape=mxgraph.basic.person;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fillColor=#ADD8E6;" vertex="1" parent="1"><mxGeometry x="240" y="80" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="4" value="Propensity: CI/CD integration & policy gates" style="shape=mxgraph.basic.person;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fillColor=#ADD8E6;" vertex="1" parent="1"><mxGeometry x="400" y="80" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="5" value="Architect" style="shape=mxgraph.basic.person;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fillColor=#ADD8E6;" vertex="1" parent="1"><mxGeometry x="560" y="80" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="6" value="QA)" style="shape=mxgraph.basic.person;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fillColor=#ADD8E6;" vertex="1" parent="1"><mxGeometry x="80" y="180" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="7" value="Propensity: security test participation uplift" style="shape=mxgraph.basic.person;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fillColor=#ADD8E6;" vertex="1" parent="1"><mxGeometry x="240" y="180" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="8" value="Propensity: pipeline governance uplift" style="shape=mxgraph.basic.person;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fillColor=#ADD8E6;" vertex="1" parent="1"><mxGeometry x="400" y="180" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="9" value="Propensity: observability/SecOps enablement" style="shape=mxgraph.basic.person;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fillColor=#ADD8E6;" vertex="1" parent="1"><mxGeometry x="560" y="180" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="10" value="People Propensity = expected increase in engagement/ownership due to To-Be tech changes\nGreen: NEW propensity, Blue: IMPROVED propensity, Dark blue: baseline/KEPT" style="shape=mxgraph.basic.person;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1"><mxGeometry x="80" y="280" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="11" value="Dev" style="shape=mxgraph.basic.person;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1"><mxGeometry x="240" y="280" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="12" value="Ops" style="shape=mxgraph.basic.person;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1"><mxGeometry x="400" y="280" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="13" value="Rel" style="shape=mxgraph.basic.person;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1"><mxGeometry x="560" y="280" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="14" value="DevOps" style="shape=mxgraph.basic.person;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1"><mxGeometry x="80" y="380" width="120" height="60" as="geometry"/></mxCell>
+        <mxCell id="15" value="" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="2" target="3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="16" value="" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="3" target="5" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="17" value="" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="3" target="11" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="18" value="" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="6" target="7" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="19" value="" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="3" target="12" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="20" value="" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="13" target="14" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="21" value="" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="7" target="12" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="22" value="" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="6" target="12" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="23" value="" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="3" target="14" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="24" value="Propensity: security test participation uplift" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="6" target="7" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="25" value="" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="6" target="12" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="26" value="" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="8" target="12" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="27" value="Propensity: platform/policy design emphasis" style="rounded=0;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;entryX=0.5;entryY=0;endArrow=block;endFill=1;" edge="1" source="5" target="3" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
