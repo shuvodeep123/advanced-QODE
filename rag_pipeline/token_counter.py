@@ -2,9 +2,10 @@
 token_counter.py — Real-time token usage tracking for advanced-QODE.
 
 Tracks prompt tokens, completion tokens, and total tokens across all LLM
-calls in a session.  The counter is backed by a thread-safe in-process store
-that is kept in sync with Streamlit session state on every update so the UI
-reflects usage immediately after each request.
+calls.  The counter is backed by a thread-safe in-process store that is
+persisted to disk (at ~/.qode/token_usage/token_usage.json) on every update,
+so usage is retained across CLI sessions. Streamlit session state is kept in
+sync on every update so the UI reflects usage immediately after each request.
 
 Token counting strategy
 -----------------------
@@ -19,22 +20,31 @@ Token budget
 Set ``TOKEN_BUDGET`` in the environment (or ``.env``) to the total tokens
 allotted for the session.  Defaults to 100 000.
 
+Persistent storage
+------------------
+Token usage is automatically saved to ~/.qode/token_usage/token_usage.json
+after each LLM call. On module load, usage is restored from disk so you
+can resume tracking across multiple CLI invocations.
+
 Public API
 ----------
-    TokenUsage                      — dataclass: prompt / completion / total
-    get_usage()  -> TokenUsage      — current session totals
-    record_call(prompt_tokens, completion_tokens, model)  — add a call's usage
-    reset()                         — zero all counters (new session)
+    TokenUsage                      — dataclass: prompt / completion / total / by_model
+    get_usage()  -> TokenUsage      — current session totals (with on-disk values)
+    record_call(prompt_tokens, completion_tokens, model)  — add a call's usage (persisted)
+    reset()                         — zero all counters and clear disk storage
     estimate_tokens(messages)       — count tokens in an OpenAI message list
     pct_used(budget)                — float 0–100
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import threading
 from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
 from typing import Sequence
 
 logger = logging.getLogger(__name__)
@@ -42,7 +52,15 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Token budget — override via TOKEN_BUDGET env var or .env
 # ---------------------------------------------------------------------------
-DEFAULT_BUDGET: int = int(os.environ.get("TOKEN_BUDGET", "7900000"))
+DEFAULT_BUDGET: int = int(os.environ.get("TOKEN_BUDGET", "100000"))
+
+# ---------------------------------------------------------------------------
+# Persistent storage for token usage across CLI sessions
+# ---------------------------------------------------------------------------
+_STORAGE_DIR = Path.home() / ".qode" / "token_usage"
+_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+_STORAGE_FILE = _STORAGE_DIR / "token_usage.json"
+_HISTORY_FILE = _STORAGE_DIR / "token_history.json"
 
 # ---------------------------------------------------------------------------
 # Thread-safe usage store
@@ -71,9 +89,75 @@ class TokenUsage:
             return 0.0
         return min(100.0, round(self.total_tokens / budget * 100, 2))
 
+    def to_dict(self) -> dict:
+        """Serialize to JSON-compatible dict."""
+        return {
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
+            "total_tokens": self.total_tokens,
+            "call_count": self.call_count,
+            "by_model": self.by_model,
+        }
 
-# Module-level mutable instance (one per Python process)
-_usage = TokenUsage()
+    @classmethod
+    def from_dict(cls, data: dict) -> TokenUsage:
+        """Deserialize from JSON-compatible dict."""
+        return cls(
+            prompt_tokens=data.get("prompt_tokens", 0),
+            completion_tokens=data.get("completion_tokens", 0),
+            total_tokens=data.get("total_tokens", 0),
+            call_count=data.get("call_count", 0),
+            by_model=data.get("by_model", {}),
+        )
+
+
+def _load_from_disk() -> TokenUsage:
+    """Load token usage from persistent storage, return empty if not found."""
+    try:
+        if _STORAGE_FILE.exists():
+            with open(_STORAGE_FILE, "r") as f:
+                data = json.load(f)
+                return TokenUsage.from_dict(data)
+    except Exception as e:
+        logger.warning(f"Failed to load token usage from disk: {e}")
+    return TokenUsage()
+
+
+def _save_to_disk(usage: TokenUsage) -> None:
+    """Persist token usage to disk."""
+    try:
+        with open(_STORAGE_FILE, "w") as f:
+            json.dump(usage.to_dict(), f, indent=2)
+    except Exception as e:
+        logger.warning(f"Failed to save token usage to disk: {e}")
+
+
+def _load_history() -> list[dict]:
+    """Load call history from disk, return empty list if not found."""
+    try:
+        if _HISTORY_FILE.exists():
+            with open(_HISTORY_FILE, "r") as f:
+                return json.load(f)
+    except Exception as e:
+        logger.warning(f"Failed to load token history from disk: {e}")
+    return []
+
+
+def _save_history(history: list[dict]) -> None:
+    """Persist call history to disk."""
+    try:
+        with open(_HISTORY_FILE, "w") as f:
+            json.dump(history, f, indent=2)
+    except Exception as e:
+        logger.warning(f"Failed to save token history to disk: {e}")
+
+
+# Load history on module startup
+_history = _load_history()
+
+
+# Module-level mutable instance (one per Python process) — load from disk on startup
+_usage = _load_from_disk()
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +187,7 @@ def record_call(
     """Add one LLM call's token counts to the session totals.
 
     Thread-safe.  Returns the updated snapshot so callers can read immediately.
+    Persists to disk after each call with timestamp in history.
 
     Args:
         prompt_tokens:      Tokens consumed by the input messages.
@@ -115,6 +200,8 @@ def record_call(
     # Treat None (returned by some endpoints) as 0 to avoid TypeError
     pt = int(prompt_tokens or 0)
     ct = int(completion_tokens or 0)
+    timestamp = datetime.utcnow().isoformat()
+
     with _lock:
         _usage.prompt_tokens     += pt
         _usage.completion_tokens += ct
@@ -127,10 +214,10 @@ def record_call(
         _usage.last_call_completion = ct
         _usage.last_call_total      = pt + ct
         logger.debug(
-            "Token usage recorded — prompt=%d completion=%d total=%d (session=%d)",
-            pt, ct, pt + ct, _usage.total_tokens,
+            "Token usage recorded — prompt=%d completion=%d total=%d model=%s (session=%d)",
+            pt, ct, pt + ct, model, _usage.total_tokens,
         )
-        return TokenUsage(
+        snapshot = TokenUsage(
             prompt_tokens=_usage.prompt_tokens,
             completion_tokens=_usage.completion_tokens,
             total_tokens=_usage.total_tokens,
@@ -141,9 +228,43 @@ def record_call(
             last_call_total=_usage.last_call_total,
         )
 
+    # Add to history with timestamp
+    _history.append({
+        "timestamp": timestamp,
+        "prompt_tokens": pt,
+        "completion_tokens": ct,
+        "total_tokens": pt + ct,
+        "model": model,
+    })
+
+    # Persist outside lock to avoid blocking token recording
+    _save_to_disk(_usage)
+    _save_history(_history)
+    return snapshot
+
+
+def get_history(hours: int | None = None) -> list[dict]:
+    """Get call history, optionally filtered to last N hours.
+
+    Args:
+        hours: If provided, return only calls from the last N hours.
+
+    Returns:
+        List of call records with timestamp, tokens, and model.
+    """
+    if hours is None:
+        return _history.copy()
+
+    cutoff = datetime.utcnow().timestamp() - (hours * 3600)
+    return [
+        call for call in _history
+        if datetime.fromisoformat(call["timestamp"]).timestamp() >= cutoff
+    ]
+
 
 def reset() -> None:
-    """Zero all counters (call at the start of a new session)."""
+    """Zero all counters and clear persistent storage (call at the start of a new session)."""
+    global _history
     with _lock:
         _usage.prompt_tokens     = 0
         _usage.completion_tokens = 0
@@ -153,7 +274,10 @@ def reset() -> None:
         _usage.last_call_prompt     = 0
         _usage.last_call_completion = 0
         _usage.last_call_total      = 0
-    logger.info("Token counter reset.")
+        _history = []
+    _save_to_disk(_usage)
+    _save_history(_history)
+    logger.info("Token counter reset (persistent storage cleared).")
 
 
 # ---------------------------------------------------------------------------

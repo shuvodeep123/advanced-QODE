@@ -110,3 +110,5 @@ def score_response(
     except Exception as exc:
         logger.error("score_response failed: %s", exc)
         return 0.0
+
+

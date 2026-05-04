@@ -452,8 +452,7 @@ for _msg_idx, msg in enumerate(st.session_state.messages):
             render_assistant_bubble(msg["content"], msg.get("mode", "principles"))
             render_mode_badge(msg.get("mode", "principles"))
             render_eval_bar(msg.get("eval_score"))
-            if msg.get("diagram_path"):
-                render_diagram_card(msg["diagram_path"], msg.get("diagram_type", ""), key=f"hist_{_msg_idx}")
+            # Show only DOT diagram (graphviz) — skipping Mermaid/PNG render
             if msg.get("tobe_dot_path") and Path(msg["tobe_dot_path"]).exists():
                 _hist_dot = Path(msg["tobe_dot_path"]).read_text(encoding="utf-8", errors="replace")
                 render_dot_diagram(_hist_dot, msg.get("diagram_type", "general"), key=f"hist_dot_{_msg_idx}")
@@ -588,14 +587,11 @@ if prompt:
         render_mode_badge(mode)
         render_eval_bar(eval_score)
 
-        if diagram_path:
-            render_diagram_card(diagram_path, diagram_type, key="live")
-
-        # Show DOT graph card (To-Be / gap analysis only) with edotor.net link
+        # Show only DOT diagram (graphviz) — Mermaid/PlantUML saved to disk but not rendered
         tobe_dot_path = result.get("tobe_dot_path")
         if tobe_dot_path and Path(tobe_dot_path).exists():
-            dot_text = Path(tobe_dot_path).read_text(encoding="utf-8", errors="replace")
-            render_dot_diagram(dot_text, diagram_type or "general", key="live_dot")
+            dot_text_live = Path(tobe_dot_path).read_text(encoding="utf-8", errors="replace")
+            render_dot_diagram(dot_text_live, diagram_type or "general", key="live_dot")
 
     _asst_msg = {
         "role":           "assistant",

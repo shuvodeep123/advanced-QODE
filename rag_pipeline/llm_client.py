@@ -1,18 +1,35 @@
 """
-llm_client.py — HuggingFace OpenAI-compatible LLM wrapper.
+llm_client.py — LLM wrapper supporting two backends:
 
-Provides:
-    chat(messages)        -> str          (blocking)
-    chat_stream(messages) -> Iterator[str] (streaming tokens)
+  **Remote** (default)  — OpenAI-compatible HTTP API endpoint
+    Configured via HF_TOKEN, HF_MODEL, HF_BASE_URL in .env.
+    Includes automatic retry + timeout for transient 5xx / Cloudflare 524 errors.
+
+  **Local HF** (opt-in) — HuggingFace transformers pipeline on local hardware
+    Activated by: HF_USE_LOCAL=true in .env.
+    Model:   HF_LOCAL_MODEL  (default: FINAL-Bench/Darwin-36B-Opus)
+    Options: HF_LOAD_IN_4BIT, HF_DEVICE_MAP, HF_MAX_NEW_TOKENS
+    Requires: transformers, torch, accelerate (+ bitsandbytes for 4-bit quant)
+
+Public API (unchanged regardless of backend):
+    chat(messages)        -> str
+    chat_stream(messages) -> Iterator[str]
 """
 
 from __future__ import annotations
 
+import logging
 import os
+import time
 from typing import Iterator
 
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    OpenAI,
+)
 
 from .token_counter import record_call, estimate_tokens
 
@@ -20,12 +37,194 @@ from .token_counter import record_call, estimate_tokens
 # (e.g. an old hf_ token that was exported in a previous session).
 load_dotenv(override=True)
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
 # Configuration — resolved lazily inside _get_client() so that a
 # load_dotenv(override=True) call anywhere before the first LLM request
 # is always picked up, even if this module was imported earlier.
 # ---------------------------------------------------------------------------
 MODEL = os.environ.get("HF_MODEL")
+# Temperature — keep low for RAG use cases so answers stay grounded in context.
+# Override via LLM_TEMPERATURE in .env (float, 0.0–1.0).
+_TEMPERATURE: float = float(os.environ.get("LLM_TEMPERATURE", "0.1"))
+# Per-request timeout in seconds.  Kept under Cloudflare's 120s proxy limit
+# so Python raises a clean error rather than waiting for Cloudflare's 524.
+_TIMEOUT: float = float(os.environ.get("LLM_TIMEOUT", "90"))
+# Maximum number of automatic retries on transient 5xx / timeout errors.
+_MAX_RETRIES: int = int(os.environ.get("LLM_MAX_RETRIES", "3"))
+# Initial backoff (seconds) before the first retry; doubles each attempt.
+_BACKOFF_BASE: float = 5.0
+
+# ---------------------------------------------------------------------------
+# Local HuggingFace transformers backend configuration
+# Activated only when HF_USE_LOCAL=true; all other settings are ignored otherwise.
+# ---------------------------------------------------------------------------
+_HF_USE_LOCAL: bool = os.environ.get("HF_USE_LOCAL", "false").lower() == "true"
+_HF_LOCAL_MODEL: str = os.environ.get("HF_LOCAL_MODEL", "FINAL-Bench/Darwin-36B-Opus")
+_HF_LOAD_IN_4BIT: bool = os.environ.get("HF_LOAD_IN_4BIT", "true").lower() == "true"
+_HF_DEVICE_MAP: str = os.environ.get("HF_DEVICE_MAP", "auto")
+_HF_MAX_NEW_TOKENS: int = int(os.environ.get("HF_MAX_NEW_TOKENS", "2048"))
+
+
+# ---------------------------------------------------------------------------
+# Retry helpers
+# ---------------------------------------------------------------------------
+
+def _is_retryable(exc: Exception) -> bool:
+    """Return True for transient errors that are worth retrying."""
+    if isinstance(exc, (APITimeoutError, APIConnectionError)):
+        return True
+    if isinstance(exc, APIStatusError):
+        # 429 rate-limit, 500/502/503 server errors, 524 Cloudflare timeout
+        return exc.status_code in (429, 500, 502, 503, 524, 529)
+    return False
+
+
+def _call_with_retry(fn, *args, **kwargs):
+    """Call *fn(\*args, \*\*kwargs)* with exponential-backoff retry.
+
+    Retries up to ``_MAX_RETRIES`` times on retryable errors, doubling the
+    wait between attempts.  Re-raises on non-retryable errors immediately.
+    """
+    delay = _BACKOFF_BASE
+    last_exc: Exception | None = None
+    for attempt in range(1, _MAX_RETRIES + 2):  # +2 so the last attempt still runs
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            if not _is_retryable(exc):
+                raise
+            last_exc = exc
+            if attempt <= _MAX_RETRIES:
+                logger.warning(
+                    "LLM request failed (attempt %d/%d): %s — retrying in %.0fs …",
+                    attempt, _MAX_RETRIES + 1, exc, delay,
+                )
+                time.sleep(delay)
+                delay *= 2
+            else:
+                logger.error(
+                    "LLM request failed after %d attempts: %s",
+                    _MAX_RETRIES + 1, exc,
+                )
+    raise last_exc  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# Local HuggingFace transformers backend
+# ---------------------------------------------------------------------------
+
+_local_pipe = None  # lazy-loaded once on first use
+
+
+def _get_local_pipeline():
+    """Lazy-load and cache the local HF transformers text-generation pipeline.
+
+    Uses 4-bit quantisation by default (``HF_LOAD_IN_4BIT=true``) to reduce
+    VRAM requirements for large models like Darwin-36B-Opus (~18 GB vs ~72 GB).
+    Requires: ``transformers``, ``torch``, ``accelerate``
+    Optional:  ``bitsandbytes`` (for 4-bit quantisation)
+    """
+    global _local_pipe
+    if _local_pipe is not None:
+        return _local_pipe
+
+    logger.info(
+        "Loading local HF model '%s' (device_map=%s, 4bit=%s) — this may take a few minutes …",
+        _HF_LOCAL_MODEL, _HF_DEVICE_MAP, _HF_LOAD_IN_4BIT,
+    )
+    try:
+        from transformers import pipeline as hf_pipeline  # type: ignore[import]
+    except ImportError as e:
+        raise ImportError(
+            "'transformers' is required for local inference. "
+            "Install it with: pip install transformers torch accelerate"
+        ) from e
+
+    pipe_kwargs: dict = {
+        "task": "text-generation",
+        "model": _HF_LOCAL_MODEL,
+        "device_map": _HF_DEVICE_MAP,
+    }
+
+    if _HF_LOAD_IN_4BIT:
+        try:
+            import torch  # type: ignore[import]
+            from transformers import BitsAndBytesConfig  # type: ignore[import]
+            pipe_kwargs["model_kwargs"] = {
+                "quantization_config": BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_compute_dtype=torch.float16,
+                )
+            }
+        except ImportError:
+            logger.warning(
+                "bitsandbytes not installed — loading '%s' in full precision "
+                "(install with: pip install bitsandbytes).",
+                _HF_LOCAL_MODEL,
+            )
+
+    _local_pipe = hf_pipeline(**pipe_kwargs)
+    logger.info("Local model loaded: %s", _HF_LOCAL_MODEL)
+    return _local_pipe
+
+
+def _local_chat(messages: list[dict]) -> str:
+    """Run a message list through the local transformers pipeline (blocking)."""
+    pipe = _get_local_pipeline()
+    gen_kwargs: dict = {"max_new_tokens": _HF_MAX_NEW_TOKENS, "do_sample": _TEMPERATURE > 0}
+    if _TEMPERATURE > 0:
+        gen_kwargs["temperature"] = _TEMPERATURE
+    result = pipe(messages, **gen_kwargs)
+    # pipeline with chat template returns list-of-dicts; last entry = assistant reply
+    generated = result[0]["generated_text"]
+    if isinstance(generated, list):
+        return generated[-1].get("content", "")
+    return str(generated)
+
+
+def _local_chat_stream(messages: list[dict]) -> Iterator[str]:
+    """Stream tokens from the local model via TextIteratorStreamer.
+
+    Falls back to a single-chunk yield when streaming dependencies are absent.
+    """
+    try:
+        import threading
+        import torch  # type: ignore[import]
+        from transformers import TextIteratorStreamer  # type: ignore[import]
+    except ImportError as ie:
+        logger.warning("Streaming deps missing (%s) — falling back to blocking call.", ie)
+        yield _local_chat(messages)
+        return
+
+    pipe = _get_local_pipeline()
+    model_obj = pipe.model
+    tokenizer = pipe.tokenizer
+
+    inputs = tokenizer.apply_chat_template(
+        messages,
+        add_generation_prompt=True,
+        tokenize=True,
+        return_dict=True,
+        return_tensors="pt",
+    ).to(model_obj.device)
+
+    streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+    gen_kwargs: dict = {
+        **inputs,
+        "streamer": streamer,
+        "max_new_tokens": _HF_MAX_NEW_TOKENS,
+        "do_sample": _TEMPERATURE > 0,
+    }
+    if _TEMPERATURE > 0:
+        gen_kwargs["temperature"] = _TEMPERATURE
+
+    thread = threading.Thread(target=model_obj.generate, kwargs=gen_kwargs, daemon=True)
+    thread.start()
+    for token_text in streamer:
+        yield token_text
+    thread.join()
 
 
 def _extract_thinking(text: str) -> tuple[str, str]:
@@ -79,10 +278,30 @@ def _get_client() -> OpenAI:
 
 
 def chat(messages: list[dict], model: str = MODEL) -> str:
-    """Send *messages* to the LLM and return the full response text."""
-    response = _get_client().chat.completions.create(
+    """Send *messages* to the LLM and return the full response text.
+
+    Routes to the local HuggingFace transformers backend when
+    ``HF_USE_LOCAL=true`` is set; otherwise uses the remote OpenAI-compatible
+    API endpoint with automatic retry on transient failures.
+    """
+    if _HF_USE_LOCAL:
+        reply = _local_chat(messages)
+        # Local models don't report usage — estimate for the token counter
+        record_call(
+            prompt_tokens=estimate_tokens(messages, _HF_LOCAL_MODEL),
+            completion_tokens=estimate_tokens(
+                [{"role": "assistant", "content": reply}], _HF_LOCAL_MODEL
+            ),
+            model=_HF_LOCAL_MODEL,
+        )
+        return reply
+
+    response = _call_with_retry(
+        _get_client().chat.completions.create,
         model=model,
         messages=messages,
+        temperature=_TEMPERATURE,
+        timeout=_TIMEOUT,
     )
     # Record exact usage from the response object (always present for non-streaming)
     usage = getattr(response, "usage", None)
@@ -109,6 +328,9 @@ def chat_stream(messages: list[dict], model: str = MODEL) -> Iterator[str]:
     Yields individual text chunks as they arrive, suitable for use with
     ``st.write_stream()`` in Streamlit.
 
+    When ``HF_USE_LOCAL=true`` streams via ``TextIteratorStreamer`` from the
+    local model; otherwise streams from the remote OpenAI-compatible endpoint.
+
     Args:
         messages: OpenAI-format message list.
         model:    Model identifier (default: ``MODEL``).
@@ -116,9 +338,27 @@ def chat_stream(messages: list[dict], model: str = MODEL) -> Iterator[str]:
     Yields:
         String fragments of the assistant reply.
     """
-    stream = _get_client().chat.completions.create(
+    if _HF_USE_LOCAL:
+        full_chunks: list[str] = []
+        for token in _local_chat_stream(messages):
+            full_chunks.append(token)
+            yield token
+        # Token accounting after streaming completes
+        record_call(
+            prompt_tokens=estimate_tokens(messages, _HF_LOCAL_MODEL),
+            completion_tokens=estimate_tokens(
+                [{"role": "assistant", "content": "".join(full_chunks)}], _HF_LOCAL_MODEL
+            ),
+            model=_HF_LOCAL_MODEL,
+        )
+        return
+
+    stream = _call_with_retry(
+        _get_client().chat.completions.create,
         model=model,
         messages=messages,
+        temperature=_TEMPERATURE,
+        timeout=_TIMEOUT,
         stream=True,
         stream_options={"include_usage": True},
     )

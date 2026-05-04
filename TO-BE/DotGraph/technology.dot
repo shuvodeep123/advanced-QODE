@@ -1,177 +1,79 @@
 digraph G {
-    rankdir=LR;
-    graph [fontname="Helvetica", bgcolor="#0f172a", pad="0.6", splines=ortho];
-    node  [fontname="Helvetica", fontsize=10, style=filled, shape=box, margin="0.3,0.15"];
-    edge  [fontname="Helvetica", fontcolor="#94a3b8", fontsize=7, color="#475569", penwidth=0.9];
+rankdir=LR;
 
-    // ── REQUIREMENT ENGINEERING ───────────────────────────────────────────
-    subgraph cluster_req {
-        label="① Requirement Engineering";
-        fontcolor="#e0e7ff"; color="#334155"; style=dashed; fontsize=12;
+// KEPT Nodes (Stable Foundation - No AI Enhancement Required)
+Maven [fillcolor="#1e3a5f", style=filled, fontcolor=white];
 
-        Confluence  [fillcolor="#60a5fa", fontcolor="#0f172a",
-                     label="Confluence\n[IMPROVED]"];
-        Jira        [fillcolor="#60a5fa", fontcolor="#0f172a",
-                     label="Jira\n[IMPROVED]"];
-    }
+// IMPROVED Nodes (AI-Enhanced Existing Tools from As-Is)
+Confluence [fillcolor="#60a5fa", style=filled, fontcolor=white];
+Jira [fillcolor="#60a5fa", style=filled, fontcolor=white];
+Jbehave [fillcolor="#60a5fa", style=filled, fontcolor=white];
+Puppet [fillcolor="#60a5fa", style=filled, fontcolor=white];
+ServiceNow [fillcolor="#60a5fa", style=filled, fontcolor=white];
+"Text editor (UNIX/LINUX)" [fillcolor="#60a5fa", style=filled, fontcolor=white];
+Flyway [fillcolor="#60a5fa", style=filled, fontcolor=white];
+SonarQube [fillcolor="#60a5fa", style=filled, fontcolor=white];
+"GitHub / GitLab" [fillcolor="#60a5fa", style=filled, fontcolor=white];
+Selenium [fillcolor="#60a5fa", style=filled, fontcolor=white];
+Jmeter [fillcolor="#60a5fa", style=filled, fontcolor=white];
+"XL Deploy" [fillcolor="#60a5fa", style=filled, fontcolor=white];
+OverOps [fillcolor="#60a5fa", style=filled, fontcolor=white];
 
-    // ── CODE / DATA ENGINEERING ───────────────────────────────────────────
-    subgraph cluster_code {
-        label="② Code / Data Engineering";
-        fontcolor="#e0e7ff"; color="#334155"; style=dashed; fontsize=12;
+// NEW Nodes (AI Agentic Capabilities - Augmenting As-Is Architecture)
+AI_Doc_Agent [fillcolor="#34d399", style=filled, fontcolor=black, label="AI Doc Agent\n(Req Intelligence)"];
+AI_Code_Agent [fillcolor="#34d399", style=filled, fontcolor=black, label="AI Code Agent\n(GenAI Assist)"];
+AI_Test_Agent [fillcolor="#34d399", style=filled, fontcolor=black, label="AI Test Agent\n(Self-Healing)"];
+AI_Security_Agent [fillcolor="#34d399", style=filled, fontcolor=black, label="AI Security Agent\n(Vuln Prioritization)"];
+AI_Ops_Agent [fillcolor="#34d399", style=filled, fontcolor=black, label="AI Ops Agent\n(Auto-Remediation)"];
+AI_Deploy_Agent [fillcolor="#34d399", style=filled, fontcolor=black, label="AI Deploy Agent\n(Risk Prediction)"];
 
-        VSCode      [fillcolor="#34d399", fontcolor="#0f172a",
-                     label="VS Code + Plugins\n[REPLACED: Text Editor]"];
-        SonarQube   [fillcolor="#60a5fa", fontcolor="#0f172a",
-                     label="SonarQube Enterprise\n[IMPROVED]"];
-        GitHubGitLab [fillcolor="#60a5fa", fontcolor="#0f172a",
-                     label="GitHub / GitLab\n(GitOps enabled)\n[IMPROVED]"];
-        Maven       [fillcolor="#60a5fa", fontcolor="#0f172a",
-                     label="Maven\n[IMPROVED]"];
-        Nexus       [fillcolor="#34d399", fontcolor="#0f172a",
-                     label="Nexus / Artifactory\n[NEW]"];
-        Flyway      [fillcolor="#ffffff", fontcolor="#0f172a",
-                     label="Flyway\n[KEPT]"];
-    }
+// PRESERVED As-Is Edges (Ground Truth from Questionnaire)
+Confluence -> Confluence [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A1  A1  A2  A2  A4.0  A21  A21  A22.0  A24  A34  A36.0"];
+Confluence -> Jira [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A24  A22  A2  A4.0"];
+Jira -> Jira [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A29  A29.0  A329  A333  A335"];
+Jira -> Confluence [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A29  A29"];
+Confluence -> Jbehave [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A39  A39  A39"];
+Jbehave -> Jbehave [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A40  A42.0  A40  A42.0"];
+Confluence -> Puppet [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A2  A4.0"];
+Puppet -> Puppet [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A98  A98"];
+ServiceNow -> Puppet [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A128  A128  A273.0"];
+Puppet -> ServiceNow [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A115  A113  A136.0"];
+ServiceNow -> ServiceNow [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A127  A127"];
+ServiceNow -> "Text editor (UNIX/LINUX)" [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label=A164];
+ServiceNow -> Flyway [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label=A164];
+"Text editor (UNIX/LINUX)" -> SonarQube [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label=A206];
+SonarQube -> "GitHub / GitLab" [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label=A226];
+Flyway -> Flyway [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label=A212];
+"GitHub / GitLab" -> Maven [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label=A229];
+"GitHub / GitLab" -> Selenium [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label=A229];
+Flyway -> Selenium [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label=A232];
+Jbehave -> Selenium [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A46  A47"];
+Jbehave -> Jmeter [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A46  A47"];
+Jira -> Jmeter [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A50.0  A50.0"];
+Selenium -> Selenium [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize="8.0", label="A279  A280"];
+Jmeter -> Jmeter [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A283  A284"];
+Selenium -> Jira [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A305  A306.0"];
+Jmeter -> Jira [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A309.0  A310.0"];
+Jira -> "Text editor (UNIX/LINUX)" [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label=A330];
+"Text editor (UNIX/LINUX)" -> Jira [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label=A332];
+Jira -> "XL Deploy" [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A334  A334  A334  A334"];
+"XL Deploy" -> "XL Deploy" [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A347.0  A348.0  A352  A354  A363  A364"];
+OverOps -> "XL Deploy" [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A377.0  A377.0"];
+"XL Deploy" -> OverOps [arrowsize=0.5, color="#000000", penwidth=0.7, fontsize=8.0, label="A352  A354.0"];
 
-    // ── QUALITY ENGINEERING ───────────────────────────────────────────────
-    subgraph cluster_quality {
-        label="③ Quality Engineering";
-        fontcolor="#e0e7ff"; color="#334155"; style=dashed; fontsize=12;
-
-        Jbehave     [fillcolor="#ffffff", fontcolor="#0f172a",
-                     label="JBehave\n[KEPT]"];
-        Selenium    [fillcolor="#60a5fa", fontcolor="#0f172a",
-                     label="Selenium\n[IMPROVED]"];
-        Playwright  [fillcolor="#34d399", fontcolor="#0f172a",
-                     label="Playwright\n[NEW]"];
-        Jmeter      [fillcolor="#60a5fa", fontcolor="#0f172a",
-                     label="JMeter\n[IMPROVED]"];
-        k6          [fillcolor="#34d399", fontcolor="#0f172a",
-                     label="k6\n[NEW]"];
-    }
-
-    // ── BUILD & RELEASE ENGINEERING ───────────────────────────────────────
-    subgraph cluster_build {
-        label="④ Build & Release Engineering";
-        fontcolor="#e0e7ff"; color="#334155"; style=dashed; fontsize=12;
-
-        XLDeploy    [fillcolor="#60a5fa", fontcolor="#0f172a",
-                     label="XL Deploy\n[IMPROVED]"];
-        ArgoCD      [fillcolor="#34d399", fontcolor="#0f172a",
-                     label="ArgoCD\n(GitOps CD)\n[NEW]"];
-    }
-
-    // ── ENVIRONMENT ENGINEERING ───────────────────────────────────────────
-    subgraph cluster_env {
-        label="⑤ Environment Engineering";
-        fontcolor="#e0e7ff"; color="#334155"; style=dashed; fontsize=12;
-
-        Puppet      [fillcolor="#60a5fa", fontcolor="#0f172a",
-                     label="Puppet\n[IMPROVED]"];
-        Terraform   [fillcolor="#34d399", fontcolor="#0f172a",
-                     label="Terraform\n(IaC)\n[NEW]"];
-        Vault       [fillcolor="#34d399", fontcolor="#0f172a",
-                     label="HashiCorp Vault\n(Secrets Mgmt)\n[NEW]"];
-    }
-
-    // ── SERVICE OPS ───────────────────────────────────────────────────────
-    subgraph cluster_svcops {
-        label="⑥ Service Ops";
-        fontcolor="#e0e7ff"; color="#334155"; style=dashed; fontsize=12;
-
-        ServiceNow  [fillcolor="#60a5fa", fontcolor="#0f172a",
-                     label="ServiceNow\n(AIOps enabled)\n[IMPROVED]"];
-        Datadog     [fillcolor="#34d399", fontcolor="#0f172a",
-                     label="Datadog APM\n[NEW — Replaces OverOps]"];
-        OverOps     [fillcolor="#f87171", fontcolor="#0f172a",
-                     label="OverOps\n[REPLACED → Datadog]"];
-    }
-
-    // ── SECURITY ──────────────────────────────────────────────────────────
-    subgraph cluster_security {
-        label="⑦ Security Engineering";
-        fontcolor="#e0e7ff"; color="#334155"; style=dashed; fontsize=12;
-
-        OWASPZAP    [fillcolor="#34d399", fontcolor="#0f172a",
-                     label="OWASP ZAP\n(DAST)\n[NEW]"];
-        Trivy       [fillcolor="#34d399", fontcolor="#0f172a",
-                     label="Trivy\n(Container/IaC Scan)\n[NEW]"];
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // EDGES — Requirement Engineering
-    // ═══════════════════════════════════════════════════════════════════════
-    Confluence   -> Jira            [label="A24 A22 A2 A4.0"];
-    Jira         -> Confluence      [label="A29"];
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // EDGES — Confluence → downstream
-    // ═══════════════════════════════════════════════════════════════════════
-    Confluence   -> Jbehave         [label="A39"];
-    Confluence   -> Puppet          [label="A2 A4.0"];
-    Confluence   -> Terraform       [label="IaC specs → provisioning" color="#34d399" fontcolor="#34d399"];
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // EDGES — Code Engineering
-    // ═══════════════════════════════════════════════════════════════════════
-    Jira         -> VSCode          [label="A330 (replaces TextEditor)"];
-    VSCode       -> Jira            [label="A332"];
-    VSCode       -> SonarQube       [label="A206 + IDE SAST"];
-    SonarQube    -> GitHubGitLab    [label="A226 quality gate"];
-    GitHubGitLab -> Maven           [label="A229 build trigger"];
-    Maven        -> Nexus           [label="artefact publish" color="#34d399" fontcolor="#34d399"];
-    Nexus        -> XLDeploy        [label="artefact fetch" color="#34d399" fontcolor="#34d399"];
-    GitHubGitLab -> Selenium        [label="A229 test trigger"];
-    Flyway       -> Flyway          [label="A212" style=dashed];
-    Flyway       -> Selenium        [label="A232"];
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // EDGES — Quality Engineering
-    // ═══════════════════════════════════════════════════════════════════════
-    Jbehave      -> Selenium        [label="A46 A47"];
-    Jbehave      -> Playwright      [label="BDD → E2E" color="#34d399" fontcolor="#34d399"];
-    Jbehave      -> Jmeter          [label="A46 A47"];
-    Jbehave      -> k6              [label="BDD → perf" color="#34d399" fontcolor="#34d399"];
-    Jira         -> Jmeter          [label="A50.0"];
-    Jira         -> k6              [label="perf test trigger" color="#34d399" fontcolor="#34d399"];
-    Selenium     -> Jira            [label="A305 A306.0"];
-    Playwright   -> Jira            [label="E2E results" color="#34d399" fontcolor="#34d399"];
-    Jmeter       -> Jira            [label="A309.0 A310.0"];
-    k6           -> Jira            [label="perf results" color="#34d399" fontcolor="#34d399"];
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // EDGES — Build & Release
-    // ═══════════════════════════════════════════════════════════════════════
-    Jira         -> XLDeploy        [label="A334 release gate"];
-    GitHubGitLab -> ArgoCD          [label="GitOps sync" color="#34d399" fontcolor="#34d399"];
-    ArgoCD       -> XLDeploy        [label="CD orchestration" color="#34d399" fontcolor="#34d399"];
-    XLDeploy     -> Datadog         [label="deploy events" color="#34d399" fontcolor="#34d399"];
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // EDGES — Environment Engineering
-    // ═══════════════════════════════════════════════════════════════════════
-    ServiceNow   -> Puppet          [label="A128 A273.0"];
-    Puppet       -> ServiceNow      [label="A115 A113 A136.0"];
-    ServiceNow   -> VSCode          [label="A164 (replaces TextEditor)"];
-    ServiceNow   -> Flyway          [label="A164"];
-    Terraform    -> Puppet          [label="provision → config" color="#34d399" fontcolor="#34d399"];
-    Vault        -> Terraform       [label="secrets injection" color="#34d399" fontcolor="#34d399"];
-    Vault        -> GitHubGitLab    [label="CI secrets" color="#34d399" fontcolor="#34d399"];
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // EDGES — Security
-    // ═══════════════════════════════════════════════════════════════════════
-    GitHubGitLab -> Trivy           [label="container scan" color="#34d399" fontcolor="#34d399"];
-    GitHubGitLab -> OWASPZAP        [label="DAST trigger" color="#34d399" fontcolor="#34d399"];
-    Trivy        -> Jira            [label="vuln tickets" color="#34d399" fontcolor="#34d399"];
-    OWASPZAP     -> Jira            [label="DAST findings" color="#34d399" fontcolor="#34d399"];
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // EDGES — Observability
-    // ═══════════════════════════════════════════════════════════════════════
-    Datadog      -> Jira            [label="alert → incident" color="#34d399" fontcolor="#34d399"];
-    Datadog      -> ServiceNow      [label="ITSM integration" color="#34d399" fontcolor="#34d399"];
-    OverOps      -> XLDeploy        [label="A377.0 (legacy)" color="#f87171" fontcolor="#f87171" style=dashed];
-    XLDeploy     -> OverOps         [label="A352 A354.0 (legacy)" color="#f87171" fontcolor="#f87171" style=dashed];
+// NEW AI Agent Integration Edges (Agentic Workflows)
+AI_Doc_Agent -> Confluence [style=dashed, color="#059669", penwidth=1.5, label="Auto-sync"];
+AI_Doc_Agent -> Jira [style=dashed, color="#059669", penwidth=1.5, label="Smart tickets"];
+AI_Code_Agent -> "GitHub / GitLab" [style=dashed, color="#059669", penwidth=1.5, label="Gen code"];
+AI_Code_Agent -> "Text editor (UNIX/LINUX)" [style=dashed, color="#059669", penwidth=1.5, label="Pair program"];
+AI_Security_Agent -> SonarQube [style=dashed, color="#059669", penwidth=1.5, label="AI SAST"];
+AI_Security_Agent -> "GitHub / GitLab" [style=dashed, color="#059669", penwidth=1.5, label="PR Review"];
+AI_Test_Agent -> Selenium [style=dashed, color="#059669", penwidth=1.5, label="Self-heal"];
+AI_Test_Agent -> Jbehave [style=dashed, color="#059669", penwidth=1.5, label="Gen scenarios"];
+AI_Test_Agent -> Jmeter [style=dashed, color="#059669", penwidth=1.5, label="Perf insights"];
+AI_Deploy_Agent -> "XL Deploy" [style=dashed, color="#059669", penwidth=1.5, label="Risk predict"];
+AI_Deploy_Agent -> Flyway [style=dashed, color="#059669", penwidth=1.5, label="Schema AI"];
+AI_Ops_Agent -> OverOps [style=dashed, color="#059669", penwidth=1.5, label="Root cause"];
+AI_Ops_Agent -> ServiceNow [style=dashed, color="#059669", penwidth=1.5, label="Auto-remediate"];
+AI_Ops_Agent -> Puppet [style=dashed, color="#059669", penwidth=1.5, label="Config drift"];
 }

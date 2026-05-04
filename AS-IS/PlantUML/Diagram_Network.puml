@@ -1,0 +1,9 @@
+@startuml
+' Process Architecture Diagram
+
+rectangle "(Jira)" as _Jira_
+rectangle "E1" as E1
+
+_Jira_ --> E1
+
+@enduml

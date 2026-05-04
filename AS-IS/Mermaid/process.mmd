@@ -1,0 +1,142 @@
+flowchart TD
+E0["E0<br>Requirement<br>(Jira)"]
+E1["E1<br>Requirements to BRS<br>(Confluence)"]
+E2["E2<br>BRS to SRS<br>(Confluence)"]
+E3["E3<br>BRS to SRS<br>(Confluence)"]
+E4["E4<br>IT handbook to SRS<br>(Confluence)"]
+E5["E5<br>BRS to SRS<br>(Confluence)"]
+E6["E6<br>SRS to SRS<br>(Confluence)"]
+E7["E7<br>SRS to SRS<br>(Confluence)"]
+E8["E8<br>BRS/SRS to BRS/SRS<br>(Confluence)"]
+E9["E9<br>Requirements to Requirements<br>(Jira)"]
+E10["E10<br>Requirements to SRS<br>(Jira)"]
+E11["E11<br>Requirements to SRS<br>(Confluence)"]
+E12["E12<br>Requirements to SRS<br>(Confluence)"]
+E13["E13<br>Requirements to nan<br>(Confluence)"]
+E14["E14<br>Requirements to Test case<br>(Jbehave)"]
+E15["E15<br>Requirements to Test case<br>(Jbehave)"]
+E16["E16<br>Test case to Test script<br>(Jbehave)"]
+E17["E17<br>Test case to Test script<br>(Jbehave)"]
+E18["E18<br>Test case to Requirements<br>(Jira)"]
+E19["E19<br>Requirements to Infra as code<br>(Puppet)"]
+E20["E20<br>Requirements to Infra as code<br>(Puppet)"]
+E21["E21<br>Template to Environment<br>(Puppet)"]
+E22["E22<br>Template to Infra as code<br>(Puppet)"]
+E23["E23<br>Template to Service request<br>(ServiceNow)"]
+E24["E24<br>Service request to Infra as code<br>(ServiceNow)"]
+E25["E25<br>Infra as code to Environment<br>(Puppet)"]
+E26["E26<br>Environment to Service request<br>(ServiceNow)"]
+E27["E27<br>Requirements to Code<br>(Text editor (UNIX/LINUX))"]
+E28["E28<br>Design to Code<br>(Flyway)"]
+E29["E29<br>Code to Code<br>(SonarQube)"]
+E30["E30<br>Code to Code<br>(GitHub / GitLab)"]
+E31["E31<br>Code to Code<br>(Flyway)"]
+E32["E32<br>Code to Code<br>(Maven)"]
+E33["E33<br>Code to Test result<br>(Selenium)"]
+E34["E34<br>Code to Test result<br>(Selenium)"]
+E35["E35<br>Service request to Environment<br>(ServiceNow)"]
+E36["E36<br>Requirements to Test case<br>(Jbehave)"]
+E37["E37<br>Test case to Test script<br>(Selenium)"]
+E38["E38<br>Test case to Test script<br>(Selenium)"]
+E39["E39<br>Test case to Test script<br>(Jmeter)"]
+E40["E40<br>Test case to Test script<br>(Jmeter)"]
+E41["E41<br>Test script to Test result<br>(Selenium)"]
+E42["E42<br>Test case to Test result<br>(Selenium)"]
+E43["E43<br>Test script to Test result<br>(Jmeter)"]
+E44["E44<br>Test case to Test result<br>(Jmeter)"]
+E45["E45<br>Test result to Defect<br>(Jira)"]
+E46["E46<br>Defect to Checklist<br>(Jira)"]
+E47["E47<br>Defect to Code<br>(Text editor (UNIX/LINUX))"]
+E48["E48<br>Defect to Code<br>(Jira)"]
+E49["E49<br>Test result to Checklist<br>(Jira)"]
+E50["E50<br>Requirements to Release plan<br>(Jira)"]
+E51["E51<br>Requirements to Release plan<br>(Jira)"]
+E52["E52<br>Service request to Code<br>(XL Deploy)"]
+E53["E53<br>Service request to Code<br>(XL Deploy)"]
+E54["E54<br>Service request to Code<br>(XL Deploy)"]
+E55["E55<br>Service request to Code<br>(XL Deploy)"]
+E56["E56<br>Service request to Code<br>(XL Deploy)"]
+E57["E57<br>Service request to Code<br>(XL Deploy)"]
+E58["E58<br>Service request to Code<br>(XL Deploy)"]
+E59["E59<br>Service request to Code<br>(XL Deploy)"]
+E60["E60<br>Code to Report<br>(OverOps)"]
+E0 -->|A1<br>5.0,5.0 (0)<br>Business| E1
+E1 -->|A2<br>3.0,2.0 (5.0)<br>ITLead| E2
+E1 -->|A4<br>2.0,2.0 (5.0)<br>ITLead| E3
+E2 -->|A16<br>1.0,1.0 (8.0)<br>Ops-Rel| E4
+E2 -->|A21<br>3.0,3.0 (8.0)<br>ITLead| E5
+E3 -->|A21(A)<br>3.0,3.0 (7.0)<br>ITLead| E5
+E5 -->|A22<br>2.0,2.0 (11.0)<br>Architect| E6
+E5 -->|A24<br>2.0,2.0 (11.0)<br>ITLead| E7
+E6 -->|A24(A)<br>2.0,2.0 (13.0)<br>ITLead| E7
+E7 -->|A25<br>0.25,0.25 (15.0)<br>ITLead| E8
+E7 -->|A29<br>1.0,1.0 (15.0)<br>ITLead| E9
+E9 -->|A31<br>1.0,1.0 (16.0)<br>ITLead| E10
+E9 -->|A34<br>3.0,2.0 (16.0)<br>Dev (incl. QA)| E11
+E9 -->|A36<br>1.5,1.5 (16.0)<br>Dev (incl. QA)| E12
+E11 -->|A39<br>2.0,2.0 (19.0)<br>QA| E13
+E12 -->|A39(A)<br>2.0,2.0 (17.5)<br>QA| E13
+E13 -->|A40<br>2.0,1.0 (21.0)<br>QA| E14
+E13 -->|A42<br>1.5,0.5 (21.0)<br>QA| E15
+E14 -->|A46<br>2.0,1.0 (23.0)<br>QA| E16
+E15 -->|A46(A)<br>2.0,1.0 (22.5)<br>QA| E16
+E14 -->|A47<br>2.0,1.0 (23.0)<br>QA| E17
+E15 -->|A47(A)<br>2.0,1.0 (22.5)<br>QA| E17
+E6 -->|A50<br>1.0,0.5 (13.0)<br>QA| E18
+E9 -->|A50(A)<br>1.0,0.5 (16.0)<br>QA| E18
+E2 -->|A98<br>1.0,1.0 (8.0)<br>Ops-Rel| E19
+E3 -->|A98(A)<br>1.0,1.0 (7.0)<br>Ops-Rel| E19
+E19 -->|A106<br>0.5,0.5 (9.0)<br>DevOps lead| E20
+E24 -->|A113<br>0.01,0.01 (10.25)<br>Ops-Infra| E21
+E19 -->|A115<br>0.5,0.5 (9.0)<br>Ops-Rel| E22
+E22 -->|A127<br>0.25,0.0 (9.5)<br>Dev (incl. QA)| E23
+E23 -->|A128<br>0.5,0.5 (9.75)<br>Ops-Infra| E24
+E24 -->|A136<br>0.01,0.0 (10.25)<br>Ops-Infra| E25
+E35 -->|A136(A)<br>0.01,0.0 (10.25)<br>Ops-Infra| E25
+E21 -->|A164<br>0.25,0.1 (10.26)<br>Dev (incl. QA)| E26
+E25 -->|A164(A)<br>0.25,0.1 (10.26)<br>Dev (incl. QA)| E26
+E26 -->|A206<br>5.0,3.5 (10.51)<br>Dev (incl. QA)| E27
+E26 -->|A212<br>2.5,2.0 (10.51)<br>Dev (incl. QA)| E28
+E27 -->|A226<br>0.5,0.25 (15.51)<br>Dev (incl. QA)| E29
+E29 -->|A229<br>0.25,0.25 (16.01)<br>Dev (incl. QA)| E30
+E28 -->|A232<br>0.25,0.25 (13.01)<br>Dev (incl. QA)| E31
+E30 -->|A245<br>0.5,0.25 (16.26)<br>Dev (incl. QA)| E32
+E30 -->|A258<br>0.5,0.25 (16.26)<br>Dev (incl. QA)| E33
+E31 -->|A260<br>0.5,0.25 (13.26)<br>Dev (incl. QA)| E34
+E23 -->|A273<br>0.5,0.25 (9.75)<br>QA| E35
+E13 -->|A274<br>3.0,2.5 (21.0)<br>QA| E36
+E16 -->|A279<br>2.0,1.5 (25.0)<br>QA| E37
+E17 -->|A280<br>2.0,1.5 (25.0)<br>QA| E38
+E16 -->|A283<br>0.5,0.5 (25.0)<br>QA| E39
+E18 -->|A283(A)<br>0.5,0.5 (17.0)<br>QA| E39
+E17 -->|A284<br>0.5,0.5 (25.0)<br>QA| E40
+E18 -->|A284(A)<br>0.5,0.5 (17.0)<br>QA| E40
+E37 -->|A305<br>0.5,0.0 (27.0)<br>QA| E41
+E38 -->|A306<br>1.5,0.5 (27.0)<br>QA| E42
+E39 -->|A309<br>0.25,0.0 (25.5)<br>QA| E43
+E40 -->|A310<br>0.25,0.0 (25.5)<br>QA| E44
+E41 -->|A329<br>0.5,0.25 (27.5)<br>QA| E45
+E42 -->|A329(A)<br>0.5,0.25 (28.5)<br>QA| E45
+E43 -->|A329(B)<br>0.5,0.25 (25.75)<br>QA| E45
+E44 -->|A329(C)<br>0.5,0.25 (25.75)<br>QA| E45
+E45 -->|A330<br>0.25,0.25 (29.0)<br>ITLead| E46
+E46 -->|A332<br>1.0,0.5 (29.25)<br>Dev (incl. QA)| E47
+E47 -->|A333<br>0.5,0.5 (30.25)<br>Dev (incl. QA)| E48
+E48 -->|A334<br>1.0,0.5 (30.75)<br>QA| E49
+E2 -->|A335<br>1.0,1.0 (8.0)<br>Ops-Rel| E50
+E3 -->|A335(A)<br>1.0,1.0 (7.0)<br>Ops-Rel| E50
+E50 -->|A336<br>3.0,3.0 (9.0)<br>Ops-Rel| E51
+E49 -->|A347<br>1.0,1.0 (31.75)<br>Ops-Rel| E52
+E49 -->|A348<br>1.0,0.5 (31.75)<br>Ops-Rel| E53
+E49 -->|A352<br>1.0,0.5 (31.75)<br>Ops-Rel| E54
+E52 -->|A352(A)<br>1.0,0.5 (32.75)<br>Ops-Rel| E54
+E49 -->|A354<br>1.0,0.5 (31.75)<br>Ops-Rel| E55
+E53 -->|A354(A)<br>1.0,0.5 (32.75)<br>Ops-Rel| E55
+E54 -->|A363<br>1.0,1.0 (33.75)<br>Ops-Rel| E56
+E55 -->|A364<br>1.0,1.0 (33.75)<br>Ops-Rel| E57
+E56 -->|A366<br>1.0,0.5 (34.75)<br>Ops-Rel| E58
+E60 -->|A366(A)<br>1.0,0.5 (34.25)<br>Ops-Rel| E58
+E57 -->|A368<br>1.0,0.5 (34.75)<br>Ops-Rel| E59
+E60 -->|A368(A)<br>1.0,0.5 (34.25)<br>Ops-Rel| E59
+E54 -->|A377<br>0.5,0.5 (33.75)<br>Ops-Rel| E60
+E55 -->|A377(A)<br>0.5,0.5 (33.75)<br>Ops-Rel| E60

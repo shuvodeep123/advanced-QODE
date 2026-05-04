@@ -65,14 +65,16 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 # easy to find, version, and share independently.
 # ---------------------------------------------------------------------------
 ASIS_DIRS: dict[str, Path] = {
-    "dot":    _REPO_ROOT / "AS-IS" / "DotGraph",
-    "mermaid": _REPO_ROOT / "AS-IS" / "Mermaid",
-    "drawio":  _REPO_ROOT / "AS-IS" / "draw.io",
+    "dot":      _REPO_ROOT / "AS-IS" / "DotGraph",
+    "mermaid":  _REPO_ROOT / "AS-IS" / "Mermaid",
+    "drawio":   _REPO_ROOT / "AS-IS" / "draw.io",
+    "plantuml": _REPO_ROOT / "AS-IS" / "PlantUML",
 }
 TOBE_DIRS: dict[str, Path] = {
-    "dot":    _REPO_ROOT / "TO-BE" / "DotGraph",
-    "mermaid": _REPO_ROOT / "TO-BE" / "Mermaid",
-    "drawio":  _REPO_ROOT / "TO-BE" / "draw.io",
+    "dot":      _REPO_ROOT / "TO-BE" / "DotGraph",
+    "mermaid":  _REPO_ROOT / "TO-BE" / "Mermaid",
+    "drawio":   _REPO_ROOT / "TO-BE" / "draw.io",
+    "plantuml": _REPO_ROOT / "TO-BE" / "PlantUML",
 }
 
 
@@ -583,6 +585,14 @@ def run(
                 mmd_path.write_text(mmd_text, encoding="utf-8")           # legacy root copy
                 asis_mmd_out.write_text(mmd_text, encoding="utf-8")       # structured copy
                 logger.info("Mermaid diagram saved: %s (+ %s)", mmd_path, asis_mmd_out)
+                # PlantUML — AS-IS/PlantUML/
+                try:
+                    puml_text = dot_to_plantuml(dot_text, diagram_type)
+                    asis_puml_out = ASIS_DIRS["plantuml"] / f"{dot_filename}.puml"
+                    asis_puml_out.write_text(puml_text, encoding="utf-8")
+                    logger.info("PlantUML AS-IS artifact saved: %s", asis_puml_out)
+                except Exception:
+                    pass
                 # draw.io — both legacy root and AS-IS/draw.io/
                 try:
                     drawio_text = dot_to_drawio(dot_text, diagram_type)
@@ -599,15 +609,15 @@ def run(
                 return None
 
         # ── 3. draw.io (.drawio) — explicit format request ─────────────────
-        if output_format == "drawio":
-            drawio_path = dot_path.with_suffix(".drawio")
-            try:
-                drawio_path.write_text(dot_to_drawio(dot_text, diagram_type), encoding="utf-8")
-                logger.info("draw.io diagram saved: %s", drawio_path)
-                return str(drawio_path)
-            except Exception as drawio_err:
-                logger.warning("draw.io conversion failed: %s", drawio_err)
-                return None
+        #if output_format == "drawio":
+        #    drawio_path = dot_path.with_suffix(".drawio")
+        #    try:
+        #        drawio_path.write_text(dot_to_drawio(dot_text, diagram_type), encoding="utf-8")
+        #        logger.info("draw.io diagram saved: %s", drawio_path)
+        #        return str(drawio_path)
+        #    except Exception as drawio_err:
+        #        logger.warning("draw.io conversion failed: %s", drawio_err)
+        #        return None
 
         # ── 4. PlantUML (.puml) ────────────────────────────────────────────
         if output_format in ("auto", "plantuml"):

@@ -1,122 +1,85 @@
 flowchart LR
+    %% Existing As-Is Nodes (Verified Ground Truth)
+    Conf["Confluence"]
+    Jira["Jira"]
+    Jbehave["Jbehave"]
+    Puppet["Puppet"]
+    SN["ServiceNow"]
+    TextEd["Text editor (UNIX/LINUX)"]
+    Flyway["Flyway"]
+    SonarQube["SonarQube"]
+    GitHubGitLab["GitHub / GitLab"]
+    Maven["Maven"]
+    Selenium["Selenium"]
+    Jmeter["Jmeter"]
+    XLDeploy["XL Deploy"]
+    OverOps["OverOps"]
+    
+    %% NEW AI Agent Nodes (Agentic Enhancements)
+    AI_Doc["AI Doc Agent<br/>Req Intelligence"]
+    AI_Code["AI Code Agent<br/>GenAI Assist"]
+    AI_Test["AI Test Agent<br/>Self-Healing"]
+    AI_Sec["AI Security Agent<br/>Vuln Prioritization"]
+    AI_Ops["AI Ops Agent<br/>Auto-Remediation"]
+    AI_Deploy["AI Deploy Agent<br/>Risk Prediction"]
 
-    %% ── REQUIREMENT ENGINEERING ──────────────────────────────────────────
-    subgraph REQ["① Requirement Engineering"]
-        Confluence["Confluence\n[IMPROVED]"]
-        Jira["Jira\n[IMPROVED]"]
-    end
+    %% PRESERVED As-Is Edges (Ground Truth)
+    Conf -->|"A1  A1  A2  A2  A4.0  A21  A21  A22.0  A24  A34  A36.0"| Conf
+    Conf -->|"A24  A22  A2  A4.0"| Jira
+    Jira -->|"A29  A29.0  A329  A333  A335"| Jira
+    Jira -->|"A29  A29"| Conf
+    Conf -->|"A39  A39  A39"| Jbehave
+    Jbehave -->|"A40  A42.0  A40  A42.0"| Jbehave
+    Conf -->|"A2  A4.0"| Puppet
+    Puppet -->|"A98  A98"| Puppet
+    SN -->|"A128  A128  A273.0"| Puppet
+    Puppet -->|"A115  A113  A136.0"| SN
+    SN -->|"A127  A127"| SN
+    SN -->|A164| TextEd
+    SN -->|A164| Flyway
+    TextEd -->|A206| SonarQube
+    SonarQube -->|A226| GitHubGitLab
+    Flyway -->|A212| Flyway
+    GitHubGitLab -->|A229| Maven
+    GitHubGitLab -->|A229| Selenium
+    Flyway -->|A232| Selenium
+    Jbehave -->|"A46  A47"| Selenium
+    Jbehave -->|"A46  A47"| Jmeter
+    Jira -->|"A50.0  A50.0"| Jmeter
+    Selenium -->|"A279  A280"| Selenium
+    Jmeter -->|"A283  A284"| Jmeter
+    Selenium -->|"A305  A306.0"| Jira
+    Jmeter -->|"A309.0  A310.0"| Jira
+    Jira -->|A330| TextEd
+    TextEd -->|A332| Jira
+    Jira -->|"A334  A334  A334  A334"| XLDeploy
+    XLDeploy -->|"A347.0  A348.0  A352  A354  A363  A364"| XLDeploy
+    OverOps -->|"A377.0  A377.0"| XLDeploy
+    XLDeploy -->|"A352  A354.0"| OverOps
 
-    %% ── CODE / DATA ENGINEERING ──────────────────────────────────────────
-    subgraph CODE["② Code / Data Engineering"]
-        VSCode["VS Code + Plugins\n[REPLACED: Text Editor]"]
-        SonarQube["SonarQube Enterprise\n[IMPROVED]"]
-        GitHubGitLab["GitHub / GitLab\nGitOps enabled\n[IMPROVED]"]
-        Maven["Maven\n[IMPROVED]"]
-        Nexus["Nexus / Artifactory\n[NEW]"]
-        Flyway["Flyway\n[KEPT]"]
-    end
+    %% NEW AI Agent Integration Edges (Dashed)
+    AI_Doc -.->|Auto-sync| Conf
+    AI_Doc -.->|Smart tickets| Jira
+    AI_Code -.->|Gen code| GitHubGitLab
+    AI_Code -.->|Pair program| TextEd
+    AI_Sec -.->|AI SAST| SonarQube
+    AI_Sec -.->|PR Review| GitHubGitLab
+    AI_Test -.->|Self-heal| Selenium
+    AI_Test -.->|Gen scenarios| Jbehave
+    AI_Test -.->|Perf insights| Jmeter
+    AI_Deploy -.->|Risk predict| XLDeploy
+    AI_Deploy -.->|Schema AI| Flyway
+    AI_Ops -.->|Root cause| OverOps
+    AI_Ops -.->|Auto-remediate| SN
+    AI_Ops -.->|Config drift| Puppet
 
-    %% ── QUALITY ENGINEERING ──────────────────────────────────────────────
-    subgraph QUAL["③ Quality Engineering"]
-        Jbehave["JBehave\n[KEPT]"]
-        Selenium["Selenium\n[IMPROVED]"]
-        Playwright["Playwright\n[NEW]"]
-        Jmeter["JMeter\n[IMPROVED]"]
-        k6["k6\n[NEW]"]
-    end
-
-    %% ── BUILD & RELEASE ENGINEERING ──────────────────────────────────────
-    subgraph BUILD["④ Build & Release Engineering"]
-        XLDeploy["XL Deploy\n[IMPROVED]"]
-        ArgoCD["ArgoCD\nGitOps CD\n[NEW]"]
-    end
-
-    %% ── ENVIRONMENT ENGINEERING ──────────────────────────────────────────
-    subgraph ENV["⑤ Environment Engineering"]
-        Puppet["Puppet\n[IMPROVED]"]
-        Terraform["Terraform\nIaC\n[NEW]"]
-        Vault["HashiCorp Vault\nSecrets Mgmt\n[NEW]"]
-    end
-
-    %% ── SERVICE OPS ──────────────────────────────────────────────────────
-    subgraph SVCOPS["⑥ Service Ops"]
-        ServiceNow["ServiceNow\nAIOps enabled\n[IMPROVED]"]
-        Datadog["Datadog APM\n[NEW]"]
-        OverOps["OverOps\n[REPLACED]"]
-    end
-
-    %% ── SECURITY ENGINEERING ─────────────────────────────────────────────
-    subgraph SEC["⑦ Security Engineering"]
-        OWASPZAP["OWASP ZAP\nDAST\n[NEW]"]
-        Trivy["Trivy\nContainer & IaC Scan\n[NEW]"]
-    end
-
-    %% ── REQUIREMENT ENGINEERING FLOWS ────────────────────────────────────
-    Confluence   -->|"A24 A22 A2 A4.0"| Jira
-    Jira         -->|"A29"| Confluence
-
-    %% ── CONFLUENCE DOWNSTREAM ────────────────────────────────────────────
-    Confluence   -->|"A39"| Jbehave
-    Confluence   -->|"A2 A4.0"| Puppet
-    Confluence   -->|"IaC specs"| Terraform
-
-    %% ── CODE ENGINEERING FLOWS ───────────────────────────────────────────
-    Jira         -->|"A330"| VSCode
-    VSCode       -->|"A332"| Jira
-    VSCode       -->|"A206 + IDE SAST"| SonarQube
-    SonarQube    -->|"A226 quality gate"| GitHubGitLab
-    GitHubGitLab -->|"A229 build trigger"| Maven
-    Maven        -->|"artefact publish"| Nexus
-    Nexus        -->|"artefact fetch"| XLDeploy
-    GitHubGitLab -->|"A229 test trigger"| Selenium
-    Flyway       -->|"A232"| Selenium
-
-    %% ── QUALITY ENGINEERING FLOWS ────────────────────────────────────────
-    Jbehave      -->|"A46 A47"| Selenium
-    Jbehave      -->|"BDD → E2E"| Playwright
-    Jbehave      -->|"A46 A47"| Jmeter
-    Jbehave      -->|"BDD → perf"| k6
-    Jira         -->|"A50.0"| Jmeter
-    Jira         -->|"perf trigger"| k6
-    Selenium     -->|"A305 A306.0"| Jira
-    Playwright   -->|"E2E results"| Jira
-    Jmeter       -->|"A309.0 A310.0"| Jira
-    k6           -->|"perf results"| Jira
-
-    %% ── BUILD & RELEASE FLOWS ────────────────────────────────────────────
-    Jira         -->|"A334 release gate"| XLDeploy
-    GitHubGitLab -->|"GitOps sync"| ArgoCD
-    ArgoCD       -->|"CD orchestration"| XLDeploy
-    XLDeploy     -->|"deploy events"| Datadog
-
-    %% ── ENVIRONMENT ENGINEERING FLOWS ────────────────────────────────────
-    ServiceNow   -->|"A128 A273.0"| Puppet
-    Puppet       -->|"A115 A113 A136.0"| ServiceNow
-    ServiceNow   -->|"A164"| VSCode
-    ServiceNow   -->|"A164"| Flyway
-    Terraform    -->|"provision → config"| Puppet
-    Vault        -->|"secrets injection"| Terraform
-    Vault        -->|"CI secrets"| GitHubGitLab
-
-    %% ── SECURITY FLOWS ───────────────────────────────────────────────────
-    GitHubGitLab -->|"container scan"| Trivy
-    GitHubGitLab -->|"DAST trigger"| OWASPZAP
-    Trivy        -->|"vuln tickets"| Jira
-    OWASPZAP     -->|"DAST findings"| Jira
-
-    %% ── OBSERVABILITY FLOWS ──────────────────────────────────────────────
-    Datadog      -->|"alert → incident"| Jira
-    Datadog      -->|"ITSM integration"| ServiceNow
-    OverOps      -.->|"A377.0 legacy"| XLDeploy
-    XLDeploy     -.->|"A352 A354.0 legacy"| OverOps
-
-    %% ── CLASS DEFINITIONS ────────────────────────────────────────────────
-    classDef kept     fill:#1e3a5f,stroke:#3b82f6,color:#e0e7ff
+    %% Class Definitions for Color Coding
+    classDef kept fill:#1e3a5f,stroke:#3b82f6,color:#e0e7ff
     classDef improved fill:#1d4ed8,stroke:#60a5fa,color:#fff
-    classDef new      fill:#065f46,stroke:#34d399,color:#fff
+    classDef new fill:#065f46,stroke:#34d399,color:#fff
     classDef replaced fill:#7f1d1d,stroke:#f87171,color:#fff
-
-    class Jbehave,Flyway kept
-    class Confluence,Jira,SonarQube,GitHubGitLab,Maven,Selenium,Jmeter,Puppet,ServiceNow,XLDeploy improved
-    class VSCode,Nexus,Playwright,k6,ArgoCD,Terraform,Vault,Datadog,OWASPZAP,Trivy new
-    class OverOps replaced
+    
+    %% Apply Classes to Nodes
+    class Maven kept
+    class Conf,Jira,Jbehave,Puppet,SN,TextEd,Flyway,SonarQube,GitHubGitLab,Selenium,Jmeter,XLDeploy,OverOps improved
+    class AI_Doc,AI_Code,AI_Test,AI_Sec,AI_Ops,AI_Deploy new

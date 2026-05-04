@@ -1,0 +1,89 @@
+flowchart TD
+Business["Business"]
+ITLead["ITLead"]
+OpsRel["Ops-Rel"]
+Architect["Architect"]
+DevInclQA["Dev (incl. QA)"]
+QA["QA"]
+DevOpsLead["DevOps lead"]
+OpsInfra["Ops-Infra"]
+
+Business --> ITLead
+Business --> ITLead
+ITLead --> OpsRel
+ITLead --> ITLead
+ITLead --> ITLead
+ITLead --> Architect
+ITLead --> ITLead
+Architect --> ITLead
+ITLead --> ITLead
+ITLead --> ITLead
+ITLead --> ITLead
+ITLead --> DevInclQA
+ITLead --> DevInclQA
+DevInclQA --> QA
+DevInclQA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+Architect --> QA
+ITLead --> QA
+ITLead --> OpsRel
+ITLead --> OpsRel
+OpsRel --> DevOpsLead
+OpsInfra --> OpsInfra
+OpsRel --> OpsRel
+OpsRel --> DevInclQA
+DevInclQA --> OpsInfra
+OpsInfra --> OpsInfra
+QA --> OpsInfra
+OpsInfra --> DevInclQA
+OpsInfra --> DevInclQA
+DevInclQA --> DevInclQA
+DevInclQA --> DevInclQA
+DevInclQA --> DevInclQA
+DevInclQA --> DevInclQA
+DevInclQA --> DevInclQA
+DevInclQA --> DevInclQA
+DevInclQA --> DevInclQA
+DevInclQA --> DevInclQA
+DevInclQA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> ITLead
+ITLead --> DevInclQA
+DevInclQA --> DevInclQA
+DevInclQA --> QA
+ITLead --> OpsRel
+ITLead --> OpsRel
+OpsRel --> OpsRel
+QA --> OpsRel
+QA --> OpsRel
+QA --> OpsRel
+OpsRel --> OpsRel
+QA --> OpsRel
+OpsRel --> OpsRel
+OpsRel --> OpsRel
+OpsRel --> OpsRel
+OpsRel --> OpsRel
+OpsRel --> OpsRel
+OpsRel --> OpsRel
+OpsRel --> OpsRel
+OpsRel --> OpsRel
+OpsRel --> OpsRel

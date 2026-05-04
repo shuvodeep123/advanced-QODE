@@ -29,7 +29,7 @@ from pathlib import Path as _Path
 
 from .graph_builder import DEFAULT_GRAPH_PATH
 from .graph_retriever import get_retriever
-from .diagram_executor import run as run_diagram, get_dot_path, TOBE_DIRS, dot_to_drawio
+from .diagram_executor import run as run_diagram, get_dot_path, ASIS_DIRS, TOBE_DIRS, dot_to_drawio, dot_to_plantuml
 from .principles_engine import PrinciplesEngine, extract_principle_context
 from .langfuse_tracer import get_tracer
 
@@ -401,64 +401,79 @@ def _node_principles(state: AgentState) -> AgentState:
             state["error"] = str(exc)
             span.set_output({"status": "error", "error": str(exc)})
 
-    # ── Extract and persist Mermaid + DOT + draw.io from LLM reply ────────
-    # For To-Be / gap-analysis requests extract both formats from the LLM response
-    # and save them into the structured TO-BE/ output directories.
-    # diagram_path is overwritten with the To-Be path for non-as-is requests.
-    if (
-        not state.get("is_asis")
-        and (_wants_diagram(state["user_message"]) or state.get("is_gap_analysis"))
-        and not state.get("stream")
+    # ── Extract and persist DOT + Mermaid + PlantUML from LLM reply ──────
+    # Runs for ALL diagram requests: As-Is AND To-Be.
+    # As-Is diagrams are saved to ASIS_DIRS; To-Be / gap diagrams to TOBE_DIRS.
+    is_asis_req     = state.get("is_asis", False)
+    is_gap          = state.get("is_gap_analysis", False)
+    wants_diag      = _wants_diagram(state["user_message"]) or is_gap
+    should_extract  = (
+        not state.get("stream")
         and state.get("reply_text")
-    ):
+        and (wants_diag or is_asis_req)
+    )
+
+    if should_extract:
         reply_text  = state["reply_text"]
         intent_key  = state.get("intent", "general")
-        is_gap      = state.get("is_gap_analysis", False)
         stem_suffix = "_gap" if is_gap else ""
-        # Base filename: e.g. "process_tobe", "people_tobe", "technology_gap"
         base_name   = f"{intent_key}{stem_suffix}"
-        dot_ref     = get_dot_path(intent_key) if intent_key != "general" else None
 
-        # ── Mermaid → TO-BE/Mermaid/ ─────────────────────────────────────
+        # Choose output directories
+        out_dirs  = ASIS_DIRS if is_asis_req else TOBE_DIRS
+        dir_label = "As-Is" if is_asis_req else ("Gap" if is_gap else "To-Be")
+
+        dot_ref   = get_dot_path(intent_key) if intent_key != "general" else None
+
+        # ── Mermaid → <dir>/Mermaid/ ────────────────────────────────────
         mermaid_src = _extract_mermaid(reply_text)
         if mermaid_src:
-            tobe_mmd = TOBE_DIRS["mermaid"] / f"{base_name}.mmd"
+            mmd_out = out_dirs["mermaid"] / f"{base_name}.mmd"
             try:
-                tobe_mmd.write_text(mermaid_src, encoding="utf-8")
-                state["diagram_path"] = str(tobe_mmd)
+                mmd_out.write_text(mermaid_src, encoding="utf-8")
+                state["diagram_path"] = str(mmd_out)
                 state["diagram_type"] = intent_key
-                logger.info("%s Mermaid saved: %s (%d chars)",
-                            "Gap" if is_gap else "To-Be", tobe_mmd, len(mermaid_src))
-                # Legacy root copy (keeps backward compat with render_diagram_card)
+                logger.info("%s Mermaid saved: %s (%d chars)", dir_label, mmd_out, len(mermaid_src))
+                # Legacy root copy
                 if dot_ref:
                     try:
-                        legacy = dot_ref.parent / f"{dot_ref.stem}{'_gap' if is_gap else '_tobe'}.mmd"
+                        legacy = dot_ref.parent / f"{dot_ref.stem}{'_gap' if is_gap else ('_asis' if is_asis_req else '_tobe')}.mmd"
                         legacy.write_text(mermaid_src, encoding="utf-8")
                     except Exception:
                         pass
             except Exception as e:
-                logger.warning("Could not save To-Be Mermaid: %s", e)
+                logger.warning("Could not save %s Mermaid: %s", dir_label, e)
         else:
-            logger.warning("LLM reply contained no Mermaid block for '%s' request.", intent_key)
+            logger.warning("LLM reply contained no Mermaid block for '%s' %s request.", intent_key, dir_label)
 
-        # ── DOT → TO-BE/DotGraph/ ────────────────────────────────────────
+        # ── DOT → <dir>/DotGraph/ ────────────────────────────────────────
         dot_src = _extract_dot(reply_text)
         if dot_src:
-            tobe_dot = TOBE_DIRS["dot"] / f"{base_name}.dot"
+            dot_out = out_dirs["dot"] / f"{base_name}.dot"
             try:
-                tobe_dot.write_text(dot_src, encoding="utf-8")
-                state["tobe_dot_path"] = str(tobe_dot)
-                logger.info("To-Be DOT saved: %s (%d chars)", tobe_dot, len(dot_src))
-                # ── draw.io → TO-BE/draw.io/ (derived from LLM DOT) ──────
+                dot_out.write_text(dot_src, encoding="utf-8")
+                state["tobe_dot_path"] = str(dot_out)   # used by UI for DOT display
+                logger.info("%s DOT saved: %s (%d chars)", dir_label, dot_out, len(dot_src))
+
+                # ── PlantUML → <dir>/PlantUML/ (derived from DOT) ────────
+                try:
+                    puml_text = dot_to_plantuml(dot_src, intent_key)
+                    puml_out = out_dirs["plantuml"] / f"{base_name}.puml"
+                    puml_out.write_text(puml_text, encoding="utf-8")
+                    logger.info("%s PlantUML saved: %s", dir_label, puml_out)
+                except Exception as pe:
+                    logger.warning("Could not generate %s PlantUML: %s", dir_label, pe)
+
+                # ── draw.io → <dir>/draw.io/ (derived from DOT) ──────────
                 try:
                     drawio_text = dot_to_drawio(dot_src, intent_key)
-                    tobe_drawio = TOBE_DIRS["drawio"] / f"{base_name}.drawio"
-                    tobe_drawio.write_text(drawio_text, encoding="utf-8")
-                    logger.info("To-Be draw.io saved: %s", tobe_drawio)
+                    drawio_out = out_dirs["drawio"] / f"{base_name}.drawio"
+                    drawio_out.write_text(drawio_text, encoding="utf-8")
+                    logger.info("%s draw.io saved: %s", dir_label, drawio_out)
                 except Exception as de:
-                    logger.warning("Could not generate To-Be draw.io: %s", de)
+                    logger.warning("Could not generate %s draw.io: %s", dir_label, de)
             except Exception as e:
-                logger.warning("Could not save To-Be DOT: %s", e)
+                logger.warning("Could not save %s DOT: %s", dir_label, e)
 
     # ── Eval scoring (async, non-blocking) ────────────────────────────────
     try:
@@ -530,6 +545,23 @@ over pillars, roles, tools, and activities.
   from the client's QODE questionnaire.  You MUST treat it as the sole source of truth. \
   Never assume, invent, or infer any roles, tools, processes, or relationships \
   that are not explicitly present in that section.
+- **Toolchain Improvement (Technology Discipline)**: When the user asks to improve an existing \
+  As-Is Technology diagram, you MUST:\
+    1. **Stay within the verified As-Is toolchain** — Only recommend enhancements or replacements \
+       for tools/platforms that are already present in the questionnaire.\
+    2. **NO internet-sourced or trendy tools** — Do NOT invent fancy toolchains from external \
+       sources. Recommendations must be grounded exclusively in the As-Is architecture and \
+       the QODE Knowledge Graph context.\
+    3. **AI/Agentic Enhancement Focus** — When recommending improvements, prioritize integrating \
+       AI capabilities and agentic workflows into the EXISTING toolchain. Examples:\
+       - Add LLM-based agents to automate existing workflows\
+       - Enhance CI/CD pipelines with AI-driven testing or anomaly detection agents\
+       - Integrate AI code generation or intelligent documentation into dev tools\
+       - Deploy autonomous agents for operational tasks (log analysis, incident response, etc.)\
+    4. **Justify each recommendation** — Explain how the AI/agentic enhancement fits into and \
+       strengthens the verified As-Is architecture.\
+    5. **No standalone new tools** — Do NOT recommend entirely new tool categories. Focus on \
+       capability enhancements to what already exists.
 - **To-Be recommendations with questionnaire data**: derive all recommendations \
   exclusively from the verified As-Is data, the Knowledge Graph, and Semantic Context.
 - **To-Be recommendations without questionnaire data**: you MUST still produce a \
@@ -622,7 +654,7 @@ def _build_messages(
     # ── As-Is ground truth ── injected LAST so it is closest to the user turn
     if asis_diagram_data:
         if is_asis:
-            # As-Is analysis mode: explain + assess current state, no To-Be diagram
+            # As-Is analysis mode: regenerate the diagram + provide structured analysis
             system_content += (
                 "\n\n---\n## ⚠️ As-Is Architecture — Verified Ground Truth\n\n"
                 "The following DOT graph is the **verified current-state architecture** "
@@ -630,17 +662,20 @@ def _build_messages(
                 "```dot\n"
                 + asis_diagram_data
                 + "\n```\n\n"
-                "## 📊 As-Is Analysis Mode — ACTIVE\n\n"
-                "The diagram has already been rendered by the QODE diagram engine.\n"
-                "**Your role**: Provide a structured analysis of the current-state architecture above.\n"
-                "Structure your response as:\n"
+                "## 📊 As-Is Diagram Generation Mode — ACTIVE\n\n"
+                "You MUST output BOTH a **Graphviz DOT graph** and a **Mermaid flowchart** "
+                "that faithfully reproduces the verified As-Is architecture above.\n"
+                "Use EXACTLY the nodes and edges from the ground-truth DOT — do not add or remove any.\n\n"
+                "**Output format (MANDATORY):**\n"
+                "1. Emit the DOT graph inside: ```dot digraph G { … } ```\n"
+                "2. Emit the Mermaid flowchart inside: ```mermaid flowchart … ```\n"
+                "3. Both blocks are REQUIRED — output DOT first, then Mermaid.\n\n"
+                "After the diagrams, provide a structured analysis:\n"
                 "1. **Architecture Summary** — what the current state looks like\n"
                 "2. **Key Components** — list all roles / tools / processes found\n"
                 "3. **Strengths** — what is working well\n"
                 "4. **Gaps & Areas for Attention** — missing capabilities or improvement areas\n"
-                "5. **Quick Wins** — 2–3 immediate improvements with low effort / high impact\n\n"
-                "**Do NOT generate a new Mermaid diagram.** "
-                "Provide structured analysis in well-formatted prose."
+                "5. **Quick Wins** — 2–3 immediate improvements with low effort / high impact\n"
             )
         else:
             system_content += (
@@ -665,12 +700,16 @@ def _build_messages(
     else:
         if is_asis:
             system_content += (
-                "\n\n---\n## 📊 As-Is Analysis Mode — No Questionnaire Loaded\n\n"
-                "No client questionnaire has been uploaded. Provide a general best-practice "
-                "analysis of what a mature current-state architecture looks like for the "
-                "requested discipline, based on the QODE Knowledge Graph Context above.\n"
-                "Structure your response with: Summary, Key Components, Strengths, Gaps, Quick Wins.\n"
-                "**Do NOT generate a Mermaid diagram.**"
+                "\n\n---\n## 📊 As-Is Diagram Generation Mode — No Questionnaire Loaded\n\n"
+                "No client questionnaire has been uploaded. Generate a best-practice "
+                "current-state architecture diagram for the requested discipline, "
+                "based on the QODE Knowledge Graph Context above.\n\n"
+                "**Output format (MANDATORY):**\n"
+                "1. Emit a **Graphviz DOT graph** inside: ```dot digraph G { … } ```\n"
+                "2. Emit a **Mermaid flowchart** inside: ```mermaid flowchart … ```\n"
+                "3. Both blocks are REQUIRED — output DOT first, then Mermaid.\n\n"
+                "After the diagrams, provide a structured analysis: "
+                "Summary, Key Components, Strengths, Gaps, Quick Wins."
             )
         else:
             system_content += (
@@ -691,6 +730,61 @@ def _build_messages(
             )
 
     messages: list[dict] = [{"role": "system", "content": system_content}]
+
+    # ── Roadmap / long-term planning overlay ──────────────────────────────
+    if detect_narrative_request(user_message):
+        roadmap_sys = (
+            "## 📋 Strategic Roadmap Mode — ACTIVE\n\n"
+            "The user is requesting a long-term / mid-term / short-term plan (e.g., 30-60-90 days, "
+            "roadmap, strategy, or assessment).\n\n"
+            "### Chain-of-Thought Planning Constraint (MANDATORY)\n\n"
+            "You MUST use **structured chain-of-thought reasoning** that explicitly considers "
+            "interdependencies across **People — Process — Technology** when building the roadmap:\n\n"
+            "1. **Dependency Mapping Phase**:\n"
+            "   - Identify which initiatives depend on **People** changes (hiring, training, org restructure)\n"
+            "   - Identify which initiatives depend on **Process** changes (workflow redesign, governance, culture)\n"
+            "   - Identify which initiatives depend on **Technology** adoption (tool implementation, integration)\n"
+            "   - Map cross-cutting dependencies: e.g., 'Tool X cannot be deployed until Process Y is in place "
+            "     and Team Z has training'\n\n"
+            "2. **Complexity & Priority Analysis**:\n"
+            "   - **High Complexity**: Multi-disciplinary initiatives (e.g., CI/CD transformation requires "
+            "     People training + Process redesign + Technology setup)\n"
+            "   - **Medium Complexity**: Single-discipline initiatives with dependencies on others\n"
+            "   - **Low Complexity**: Self-contained improvements with minimal cross-discipline dependencies\n"
+            "   - **Priority Assignment**: Consider execution sequence — address blocking dependencies first\n\n"
+            "3. **Phased Roadmap Construction**:\n"
+            "   - **Short-term (0–30 days)**: Foundation-building, low-complexity items, People/Process prep\n"
+            "   - **Mid-term (30–60 days)**: Medium-complexity initiatives, early technology pilots\n"
+            "   - **Long-term (60–90+ days)**: High-complexity initiatives, mature deployments, measurement\n\n"
+            "4. **Explicit Output Format**:\n"
+            "   For each phase, structure as:\n"
+            "   ```\n"
+            "   ### [Phase Name] ([Days])\n"
+            "   \n"
+            "   #### Initiatives\n"
+            "   - **[Initiative Name]** (People | Process | Technology | Multi-disciplinary)\n"
+            "     - Objective: [1–2 lines]\n"
+            "     - Dependencies: [blocking factors from other disciplines]\n"
+            "     - Effort: Low | Medium | High\n"
+            "     - Owner: [Role]\n"
+            "     - Success Metric: [measurable outcome]\n"
+            "   ```\n\n"
+            "5. **Cross-Phase Dependency Callout**:\n"
+            "   After the phased roadmap, add a section:\n"
+            "   ```\n"
+            "   ### Critical Path & Interdependencies\n"
+            "   \n"
+            "   | Initiative | Blocks | Blocked By | Discipline | Risk |\n"
+            "   |---|---|---|---|---|\n"
+            "   ```\n\n"
+            "### NO skipping this reasoning\n"
+            "- Do NOT produce a flat list of activities.\n"
+            "- Do NOT ignore People and Process when planning Technology initiatives.\n"
+            "- Do NOT reorder phases without explicitly justifying priority shifts via interdependencies.\n"
+            "- Always show your reasoning about which initiatives must come first."
+        )
+        messages.append({"role": "system", "content": roadmap_sys})
+
     # ── Gap analysis overlay ─────────────────────────────────────────────
 
     if gap_items:
