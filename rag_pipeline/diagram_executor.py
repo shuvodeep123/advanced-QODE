@@ -179,9 +179,10 @@ def dot_to_mermaid(dot_text: str, diagram_type: str = "process") -> str:
       - Edge labels
       - Node fill-colour → Mermaid style classes
       - Basic subgraph blocks (flattened)
+
+    Guarantees: Returns syntactically valid Mermaid with escaped special chars.
     """
     lines: list[str] = ["flowchart TD"]
-    style_lines: list[str] = []
 
     # Strip comments
     dot = re.sub(r"//[^\n]*", "", dot_text)
@@ -204,9 +205,14 @@ def dot_to_mermaid(dot_text: str, diagram_type: str = "process") -> str:
         return s or "NODE"
 
     def _safe_label(lbl: str) -> str:
+        """Escape label for Mermaid syntax safety."""
         lbl = lbl.strip('"').strip("'")
-        # Escape Mermaid special chars
+        # Remove/replace problematic chars for Mermaid
         lbl = lbl.replace("[", "(").replace("]", ")").replace("{", "(").replace("}", ")")
+        lbl = lbl.replace('"', "'")  # replace double quotes with single
+        # Truncate very long labels
+        if len(lbl) > 80:
+            lbl = lbl[:77] + "..."
         return lbl
 
     is_directed = "digraph" in dot.lower()
@@ -260,10 +266,13 @@ def dot_to_mermaid(dot_text: str, diagram_type: str = "process") -> str:
         lbl_m = re.search(r'label\s*=\s*"([^"]*)"', attrs_str)
         edge_label = _safe_label(lbl_m.group(1)) if lbl_m else ""
 
+        src_label = node_labels.get(src_raw, src)
+        dst_label = node_labels.get(dst_raw, dst)
+
         if edge_label:
-            lines.append(f'    {src}["{node_labels[src_raw]}"] {arrow}|"{edge_label}"| {dst}["{node_labels[dst_raw]}"]')
+            lines.append(f'    {src}["{src_label}"] {arrow}|"{edge_label}"| {dst}["{dst_label}"]')
         else:
-            lines.append(f'    {src}["{node_labels[src_raw]}"] {arrow} {dst}["{node_labels[dst_raw]}"]')
+            lines.append(f'    {src}["{src_label}"] {arrow} {dst}["{dst_label}"]')
         edge_count += 1
 
     # ── Emit isolated nodes (no edges) ────────────────────────────────────
@@ -287,7 +296,7 @@ def dot_to_mermaid(dot_text: str, diagram_type: str = "process") -> str:
 
     if edge_count == 0 and not node_ids:
         # Fallback: no parseable structure
-        lines.append('    A["Diagram data not parsed — see DOT source below"]')
+        lines.append('    A["Diagram data not parsed"]')
 
     return "\n".join(lines)
 
@@ -484,29 +493,52 @@ def dot_to_drawio(dot_text: str, diagram_type: str = "process") -> str:
 
 
 # ---------------------------------------------------------------------------
+# Mermaid syntax validation
+# ---------------------------------------------------------------------------
+
+def _validate_mermaid(mmd_text: str) -> tuple[bool, str]:
+    """Validate Mermaid syntax. Returns (is_valid, error_msg)."""
+    lines = [l.strip() for l in mmd_text.split('\n') if l.strip()]
+    if not lines:
+        return False, "Empty diagram"
+
+    # Check first line is a valid diagram declaration
+    first = lines[0].lower()
+    if not any(first.startswith(d) for d in ['flowchart', 'graph', 'sequencediagram', 'classDiagram']):
+        return False, f"Invalid diagram type: {first}"
+
+    # Basic bracket matching
+    open_brackets = mmd_text.count('[') + mmd_text.count('(')
+    close_brackets = mmd_text.count(']') + mmd_text.count(')')
+    if open_brackets != close_brackets:
+        return False, f"Unbalanced brackets: {open_brackets} open, {close_brackets} close"
+
+    return True, ""
+
+
+# ---------------------------------------------------------------------------
 # Main executor
 # ---------------------------------------------------------------------------
 
 def run(
     diagram_type: str,
     excel_path: str | None = None,
-    output_format: str = "auto",   # "auto" | "png" | "mermaid" | "plantuml" | "dot"
+    output_format: str = "mermaid",   # "mermaid" only; stored formats generated as artifacts
+    is_tobe: bool = False,            # AS-IS (False) or TO-BE (True)
 ) -> str | None:
-    """Generate a QODE diagram and return the path to the output file.
+    """Generate a QODE diagram and return the Mermaid path.
 
-    Priority order (when output_format="auto"):
-      1. PNG  (requires Graphviz installed)
-      2. Mermaid .mmd  (always available — rendered inline by the UI)
-      3. PlantUML .puml (always available — rendered inline by the UI)
-      4. Raw DOT .dot  (final fallback)
+    Always returns Mermaid .mmd format. Artifacts in other formats (DOT, PlantUML, draw.io)
+    are generated for archival but not returned.
 
     Args:
         diagram_type:   "process" | "people" | "technology"
         excel_path:     Path to the QODE questionnaire. Defaults to repo root default.
-        output_format:  Override the output format explicitly, or "auto".
+        output_format:  Ignored; always returns Mermaid.
+        is_tobe:        True = TO-BE diagrams, False = AS-IS diagrams (default).
 
     Returns:
-        Absolute path to the generated file, or None on failure.
+        Absolute path to the Mermaid .mmd file, or None on failure.
     """
     if diagram_type not in _DIAGRAM_MAP:
         logger.error("Unknown diagram_type '%s'", diagram_type)
@@ -553,87 +585,49 @@ def run(
 
         dot_text = dot_path.read_text(encoding="utf-8", errors="replace")
 
-        # ── Save canonical As-Is DOT to structured AS-IS/DotGraph/ dir ────
+        output_dirs = TOBE_DIRS if is_tobe else ASIS_DIRS
+
+        # ── Save DOT to structured dir ────────────────────────────────────
         try:
-            asis_dot_out = ASIS_DIRS["dot"] / f"{dot_filename}.dot"
-            asis_dot_out.write_text(dot_text, encoding="utf-8")
+            dot_out = output_dirs["dot"] / f"{dot_filename}.dot"
+            dot_out.write_text(dot_text, encoding="utf-8")
         except Exception as _e:
-            logger.warning("Could not write AS-IS DOT to structured dir: %s", _e)
+            logger.warning("Could not write DOT to structured dir: %s", _e)
 
-        # ── 1. Try PNG (Graphviz) ──────────────────────────────────────────
-        if output_format in ("auto", "png"):
-            png_path = dot_path.with_suffix(".png")
-            try:
-                import pydot
-                graphs = pydot.graph_from_dot_file(str(dot_path))
-                if graphs:
-                    graphs[0].write_png(str(png_path))
-                    logger.info("Rendered PNG: %s", png_path)
-                    return str(png_path)
-            except Exception as png_err:
-                logger.info("PNG render skipped (%s) — falling back to Mermaid.", png_err)
-            if output_format == "png":
-                return None  # explicit PNG requested but failed
-
-        # ── 2. Mermaid (.mmd) ─────────────────────────────────────────────
-        if output_format in ("auto", "mermaid"):
-            # Primary output: structured AS-IS/Mermaid/ dir; legacy root path kept as fallback
-            mmd_path = dot_path.with_suffix(".mmd")
-            asis_mmd_out = ASIS_DIRS["mermaid"] / f"{dot_filename}.mmd"
-            try:
-                mmd_text = dot_to_mermaid(dot_text, diagram_type)
-                mmd_path.write_text(mmd_text, encoding="utf-8")           # legacy root copy
-                asis_mmd_out.write_text(mmd_text, encoding="utf-8")       # structured copy
-                logger.info("Mermaid diagram saved: %s (+ %s)", mmd_path, asis_mmd_out)
-                # PlantUML — AS-IS/PlantUML/
-                try:
-                    puml_text = dot_to_plantuml(dot_text, diagram_type)
-                    asis_puml_out = ASIS_DIRS["plantuml"] / f"{dot_filename}.puml"
-                    asis_puml_out.write_text(puml_text, encoding="utf-8")
-                    logger.info("PlantUML AS-IS artifact saved: %s", asis_puml_out)
-                except Exception:
-                    pass
-                # draw.io — both legacy root and AS-IS/draw.io/
-                try:
-                    drawio_text = dot_to_drawio(dot_text, diagram_type)
-                    dot_path.with_suffix(".drawio").write_text(drawio_text, encoding="utf-8")
-                    asis_drawio_out = ASIS_DIRS["drawio"] / f"{dot_filename}.drawio"
-                    asis_drawio_out.write_text(drawio_text, encoding="utf-8")
-                    logger.info("draw.io AS-IS artifact saved: %s", asis_drawio_out)
-                except Exception:
-                    pass
-                return str(asis_mmd_out)   # return structured path
-            except Exception as mmd_err:
-                logger.warning("Mermaid conversion failed: %s", mmd_err)
-            if output_format == "mermaid":
+        # ── Primary path: Mermaid (.mmd) ──────────────────────────────────
+        mmd_out = output_dirs["mermaid"] / f"{dot_filename}.mmd"
+        try:
+            mmd_text = dot_to_mermaid(dot_text, diagram_type)
+            is_valid, err_msg = _validate_mermaid(mmd_text)
+            if not is_valid:
+                logger.error("Mermaid validation failed: %s", err_msg)
                 return None
+            mmd_out.write_text(mmd_text, encoding="utf-8")
+            logger.info("Mermaid diagram saved: %s", mmd_out)
 
-        # ── 3. draw.io (.drawio) — explicit format request ─────────────────
-        #if output_format == "drawio":
-        #    drawio_path = dot_path.with_suffix(".drawio")
-        #    try:
-        #        drawio_path.write_text(dot_to_drawio(dot_text, diagram_type), encoding="utf-8")
-        #        logger.info("draw.io diagram saved: %s", drawio_path)
-        #        return str(drawio_path)
-        #    except Exception as drawio_err:
-        #        logger.warning("draw.io conversion failed: %s", drawio_err)
-        #        return None
-
-        # ── 4. PlantUML (.puml) ────────────────────────────────────────────
-        if output_format in ("auto", "plantuml"):
-            puml_path = dot_path.with_suffix(".puml")
+            # Generate artifact formats (not returned to UI)
+            # ── PlantUML artifact
             try:
                 puml_text = dot_to_plantuml(dot_text, diagram_type)
-                puml_path.write_text(puml_text, encoding="utf-8")
-                logger.info("PlantUML diagram saved: %s", puml_path)
-                return str(puml_path)
-            except Exception as puml_err:
-                logger.warning("PlantUML conversion failed: %s", puml_err)
-            if output_format == "plantuml":
-                return None
+                puml_out = output_dirs["plantuml"] / f"{dot_filename}.puml"
+                puml_out.write_text(puml_text, encoding="utf-8")
+                logger.info("PlantUML artifact saved: %s", puml_out)
+            except Exception:
+                pass
 
-        # ── 5. Raw DOT fallback ────────────────────────────────────────────
-        return str(dot_path)
+            # ── draw.io artifact
+            try:
+                drawio_text = dot_to_drawio(dot_text, diagram_type)
+                drawio_out = output_dirs["drawio"] / f"{dot_filename}.drawio"
+                drawio_out.write_text(drawio_text, encoding="utf-8")
+                logger.info("draw.io artifact saved: %s", drawio_out)
+            except Exception:
+                pass
+
+            return str(mmd_out)
+        except Exception as mmd_err:
+            logger.error("Mermaid conversion failed: %s", mmd_err)
+            return None
 
     except Exception as exc:
         logger.error("Diagram generation failed for '%s': %s", diagram_type, exc)

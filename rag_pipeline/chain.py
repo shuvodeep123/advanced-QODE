@@ -29,7 +29,7 @@ from pathlib import Path as _Path
 
 from .graph_builder import DEFAULT_GRAPH_PATH
 from .graph_retriever import get_retriever
-from .diagram_executor import run as run_diagram, get_dot_path, ASIS_DIRS, TOBE_DIRS, dot_to_drawio, dot_to_plantuml
+from .diagram_executor import run as run_diagram, get_dot_path, ASIS_DIRS, TOBE_DIRS, dot_to_drawio, dot_to_plantuml, dot_to_mermaid, _validate_mermaid
 from .principles_engine import PrinciplesEngine, extract_principle_context
 from .langfuse_tracer import get_tracer
 
@@ -211,7 +211,7 @@ class AgentState(TypedDict, total=False):
     gap_items: list[str]            # pillar / component names to be "removed"
     # output
     diagram_path: str | None
-    tobe_dot_path: str | None   # Graphviz DOT for To-Be diagram (from LLM)
+    tobe_mermaid_path: str | None   # Mermaid .mmd for To-Be diagram (from LLM)
     diagram_type: str | None
     reply_text: str
     thinking_text: str          # content of <think>…</think> block (may be empty)
@@ -268,6 +268,7 @@ def _node_load_asis(state: AgentState) -> AgentState:
             diagram_path = run_diagram(
                 diagram_type=intent,
                 excel_path=state.get("excel_path"),
+                is_tobe=False,
             )
         except Exception as exc:
             logger.warning("As-Is diagram render failed: %s", exc)
@@ -452,8 +453,23 @@ def _node_principles(state: AgentState) -> AgentState:
             dot_out = out_dirs["dot"] / f"{base_name}.dot"
             try:
                 dot_out.write_text(dot_src, encoding="utf-8")
-                state["tobe_dot_path"] = str(dot_out)   # used by UI for DOT display
                 logger.info("%s DOT saved: %s (%d chars)", dir_label, dot_out, len(dot_src))
+
+                # ── Convert DOT → Mermaid for UI display ──────────────────
+                try:
+                    mmd_text = dot_to_mermaid(dot_src, intent_key)
+                    is_valid, err_msg = _validate_mermaid(mmd_text)
+                    if not is_valid:
+                        logger.warning("Mermaid validation failed for %s: %s", dir_label, err_msg)
+                        state["tobe_mermaid_path"] = None
+                    else:
+                        mmd_out = out_dirs["mermaid"] / f"{base_name}.mmd"
+                        mmd_out.write_text(mmd_text, encoding="utf-8")
+                        state["tobe_mermaid_path"] = str(mmd_out)   # UI now expects Mermaid path
+                        logger.info("%s Mermaid UI path saved: %s", dir_label, mmd_out)
+                except Exception as me:
+                    logger.warning("Could not convert %s DOT to Mermaid: %s", dir_label, me)
+                    state["tobe_mermaid_path"] = None
 
                 # ── PlantUML → <dir>/PlantUML/ (derived from DOT) ────────
                 try:
@@ -817,7 +833,7 @@ def _build_messages(
     # Pass all turns in the session (up to 40 messages = ~20 exchanges) so
     # the LLM retains full context throughout the session.
     # Messages are sanitized to only {role, content} — extra keys like
-    # diagram_path, tobe_dot_path, eval_score must NOT reach the LLM API.
+    # diagram_path, tobe_mermaid_path, eval_score must NOT reach the LLM API.
     for turn in history[-40:]:
         role = turn.get("role", "user")
         content = turn.get("content", "")
@@ -875,7 +891,7 @@ def run_chain(
         "stream": final_state.get("reply_stream"),
         "thinking_text": final_state.get("thinking_text", ""),
         "diagram_path": final_state.get("diagram_path"),
-        "tobe_dot_path": final_state.get("tobe_dot_path"),
+        "tobe_mermaid_path": final_state.get("tobe_mermaid_path"),
         "diagram_type": final_state.get("diagram_type"),
         "mode": final_state.get("mode", "principles"),
         "eval_score": final_state.get("eval_score"),

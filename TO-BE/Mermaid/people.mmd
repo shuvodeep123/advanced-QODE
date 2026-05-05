@@ -1,97 +1,129 @@
 flowchart TD
-Business["Business"]
-ITLead["ITLead"]
-OpsRel["Ops-Rel"]
-Architect["Architect"]
-DevInclQA["Dev (incl. QA)"]
-QA["QA"]
-DevOpsLead["DevOps lead"]
-OpsInfra["Ops-Infra"]
+Business["Business<br/>(IMPROVED: clearer requirement ownership)"]
+ITLead["ITLead<br/>(IMPROVED: strategic governance, less delivery bottleneck)"]
+OpsRel["Ops-Rel<br/>(IMPROVED: reliability/release ownership)"]
+Architect["Architect<br/>(IMPROVED: design/threat-model governance)"]
+DevInclQA["Dev (incl. QA)<br/>(IMPROVED: shift-left quality ownership)"]
+QA["QA<br/>(IMPROVED: quality enablement & test governance)"]
+DevOpsLead["DevOps lead<br/>(IMPROVED: CI/CD coordination across teams)"]
+OpsInfra["Ops-Infra<br/>(IMPROVED: environment/platform ownership)"]
 
-Business --> ITLead
-Business --> ITLead
-ITLead --> OpsRel
-ITLead --> ITLead
-ITLead --> ITLead
-ITLead --> Architect
-ITLead --> ITLead
-Architect --> ITLead
-ITLead --> ITLead
-ITLead --> ITLead
-ITLead --> ITLead
-ITLead --> DevInclQA
-ITLead --> DevInclQA
-DevInclQA --> QA
-DevInclQA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-Architect --> QA
-ITLead --> QA
-ITLead --> OpsRel
-ITLead --> OpsRel
-OpsRel --> DevOpsLead
-OpsInfra --> OpsInfra
-OpsRel --> OpsRel
-OpsRel --> DevInclQA
-DevInclQA --> OpsInfra
-OpsInfra --> OpsInfra
-QA --> OpsInfra
-OpsInfra --> DevInclQA
-OpsInfra --> DevInclQA
-DevInclQA --> DevInclQA
-DevInclQA --> DevInclQA
-DevInclQA --> DevInclQA
-DevInclQA --> DevInclQA
-DevInclQA --> DevInclQA
-DevInclQA --> DevInclQA
-DevInclQA --> DevInclQA
-DevInclQA --> DevInclQA
-DevInclQA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> ITLead
-ITLead --> DevInclQA
-DevInclQA --> DevInclQA
-DevInclQA --> QA
-ITLead --> OpsRel
-ITLead --> OpsRel
-OpsRel --> OpsRel
-QA --> OpsRel
-QA --> OpsRel
-QA --> OpsRel
-OpsRel --> OpsRel
-QA --> OpsRel
-OpsRel --> OpsRel
-OpsRel --> OpsRel
-OpsRel --> OpsRel
-OpsRel --> OpsRel
-OpsRel --> OpsRel
-OpsRel --> OpsRel
-OpsRel --> OpsRel
-OpsRel --> OpsRel
-OpsRel --> OpsRel
+Business -->|"business priorities / portfolio alignment"| ITLead
+Business -->|"requirement escalation / approval"| ITLead
+
+ITLead -->|"service reliability priorities"| OpsRel
+ITLead -->|"governance decisions"| ITLead
+ITLead -->|"delivery oversight"| ITLead
+ITLead -->|"architecture direction"| Architect
+ITLead -->|"portfolio prioritisation"| ITLead
+Architect -->|"architecture recommendations"| ITLead
+ITLead -->|"risk acceptance"| ITLead
+ITLead -->|"delivery governance"| ITLead
+ITLead -->|"cross-team alignment"| ITLead
+
+ITLead -->|"delivery objectives"| DevInclQA
+ITLead -->|"prioritised execution guidance"| DevInclQA
+
+DevInclQA -->|"test evidence / quality feedback"| QA
+DevInclQA -->|"defect triage collaboration"| QA
+
+QA -->|"test planning"| QA
+QA -->|"test execution"| QA
+QA -->|"defect validation"| QA
+QA -->|"regression assurance"| QA
+QA -->|"quality metrics review"| QA
+QA -->|"release test sign-off"| QA
+
+Architect -->|"testability / NFR validation guidance"| QA
+ITLead -->|"quality gate expectations"| QA
+
+ITLead -->|"release governance"| OpsRel
+ITLead -->|"operational readiness expectations"| OpsRel
+OpsRel -->|"release automation accountability"| DevOpsLead
+
+OpsInfra -->|"environment provisioning ownership"| OpsInfra
+OpsRel -->|"release readiness ownership"| OpsRel
+
+OpsRel -->|"production feedback to delivery"| DevInclQA
+DevInclQA -->|"environment needs / deployment dependencies"| OpsInfra
+OpsInfra -->|"infra support / environment maintenance"| OpsInfra
+QA -->|"test environment readiness"| OpsInfra
+OpsInfra -->|"environment support"| DevInclQA
+OpsInfra -->|"deployment environment support"| DevInclQA
+
+DevInclQA -->|"coding standards"| DevInclQA
+DevInclQA -->|"peer review"| DevInclQA
+DevInclQA -->|"unit testing"| DevInclQA
+DevInclQA -->|"shift-left quality checks"| DevInclQA
+DevInclQA -->|"developer-led test automation"| DevInclQA
+DevInclQA -->|"secure coding responsibility"| DevInclQA
+DevInclQA -->|"technical debt management"| DevInclQA
+DevInclQA -->|"build issue resolution"| DevInclQA
+
+DevInclQA -->|"formal QA handoff / validation"| QA
+
+QA -->|"functional testing"| QA
+QA -->|"non-functional validation"| QA
+QA -->|"acceptance test support"| QA
+QA -->|"automation framework governance"| QA
+QA -->|"quality coaching"| QA
+QA -->|"risk-based test strategy"| QA
+QA -->|"defect trend analysis"| QA
+QA -->|"release quality reporting"| QA
+QA -->|"test data coordination"| QA
+QA -->|"test evidence management"| QA
+QA -->|"regression governance"| QA
+QA -->|"quality risk acceptance input"| QA
+QA -->|"exploratory testing"| QA
+QA -->|"UAT support"| QA
+QA -->|"defect lifecycle governance"| QA
+
+QA -->|"quality risk escalation"| ITLead
+
+ITLead -->|"delivery risk guidance"| DevInclQA
+DevInclQA -->|"continuous improvement actions"| DevInclQA
+DevInclQA -->|"shared quality accountability"| QA
+
+ITLead -->|"operational risk governance"| OpsRel
+ITLead -->|"service transition governance"| OpsRel
+
+OpsRel -->|"incident/release learning loop"| OpsRel
+QA -->|"release readiness input"| OpsRel
+QA -->|"quality signal to release"| OpsRel
+QA -->|"defect risk to operations"| OpsRel
+OpsRel -->|"release coordination"| OpsRel
+QA -->|"production defect validation support"| OpsRel
+
+OpsRel -->|"reliability review"| OpsRel
+OpsRel -->|"deployment readiness"| OpsRel
+OpsRel -->|"rollback planning"| OpsRel
+OpsRel -->|"incident coordination"| OpsRel
+OpsRel -->|"post-release review"| OpsRel
+OpsRel -->|"SLA/SLO tracking"| OpsRel
+OpsRel -->|"operational knowledge capture"| OpsRel
+OpsRel -->|"continuous reliability improvement"| OpsRel
+OpsRel -->|"release process improvement"| OpsRel
+
+DevOpsLead -->|"IMPROVED: CI/CD enablement for delivery"| DevInclQA
+DevOpsLead -->|"IMPROVED: automated quality gates coordination"| QA
+DevOpsLead -->|"IMPROVED: deployment/environment automation alignment"| OpsInfra
+DevOpsLead -->|"IMPROVED: release orchestration feedback loop"| OpsRel
+Architect -->|"IMPROVED: architecture guidance to implementation"| DevInclQA
+Architect -->|"IMPROVED: reliability/design governance"| OpsRel
+QA -->|"IMPROVED: early quality coaching"| DevInclQA
+OpsRel -->|"IMPROVED: production quality feedback"| QA
+OpsInfra -->|"IMPROVED: platform constraints into pipeline governance"| DevOpsLead
 
 classDef kept fill:#1e3a5f,stroke:#3b82f6,color:#e0e7ff
 classDef improved fill:#1d4ed8,stroke:#60a5fa,color:#fff
 classDef new fill:#065f46,stroke:#34d399,color:#fff
 classDef replaced fill:#7f1d1d,stroke:#f87171,color:#fff
 
-class Business kept
-class ITLead,OpsRel,Architect,DevInclQA,QA,DevOpsLead,OpsInfra improved
+class Business improved
+class ITLead improved
+class OpsRel improved
+class Architect improved
+class DevInclQA improved
+class QA improved
+class DevOpsLead improved
+class OpsInfra improved

@@ -47,7 +47,7 @@ from ui.components import (
     render_mode_badge,
     render_eval_bar,
     render_diagram_card,
-    render_dot_diagram,
+    render_mermaid,
     render_sidebar_section,
     render_info_card,
     render_token_counter,
@@ -210,7 +210,7 @@ with st.sidebar:
 
     st.divider()
 
-    # ── Active model ──────────────────────────────────────────────────────
+    # ── Active model ────────────────────────────────────────────────────────
     render_sidebar_section("🤖 Active Model")
     render_model_card(
         model_name=os.environ.get("HF_MODEL", "unknown"),
@@ -452,10 +452,10 @@ for _msg_idx, msg in enumerate(st.session_state.messages):
             render_assistant_bubble(msg["content"], msg.get("mode", "principles"))
             render_mode_badge(msg.get("mode", "principles"))
             render_eval_bar(msg.get("eval_score"))
-            # Show only DOT diagram (graphviz) — skipping Mermaid/PNG render
-            if msg.get("tobe_dot_path") and Path(msg["tobe_dot_path"]).exists():
-                _hist_dot = Path(msg["tobe_dot_path"]).read_text(encoding="utf-8", errors="replace")
-                render_dot_diagram(_hist_dot, msg.get("diagram_type", "general"), key=f"hist_dot_{_msg_idx}")
+            # Show Mermaid diagram
+            if msg.get("tobe_mermaid_path") and Path(msg["tobe_mermaid_path"]).exists():
+                _hist_mmd = Path(msg["tobe_mermaid_path"]).read_text(encoding="utf-8", errors="replace")
+                render_mermaid(_hist_mmd, msg.get("diagram_type", "general"), key=f"hist_mmd_{_msg_idx}")
 
 # ---------------------------------------------------------------------------
 # Chat input
@@ -587,17 +587,17 @@ if prompt:
         render_mode_badge(mode)
         render_eval_bar(eval_score)
 
-        # Show only DOT diagram (graphviz) — Mermaid/PlantUML saved to disk but not rendered
-        tobe_dot_path = result.get("tobe_dot_path")
-        if tobe_dot_path and Path(tobe_dot_path).exists():
-            dot_text_live = Path(tobe_dot_path).read_text(encoding="utf-8", errors="replace")
-            render_dot_diagram(dot_text_live, diagram_type or "general", key="live_dot")
+        # Show Mermaid diagram
+        tobe_mmd_path = result.get("tobe_mermaid_path")
+        if tobe_mmd_path and Path(tobe_mmd_path).exists():
+            mmd_text_live = Path(tobe_mmd_path).read_text(encoding="utf-8", errors="replace")
+            render_mermaid(mmd_text_live, diagram_type or "general", key="live_mmd")
 
     _asst_msg = {
         "role":           "assistant",
         "content":        full_reply or "",
         "diagram_path":   diagram_path,
-        "tobe_dot_path":  result.get("tobe_dot_path"),
+        "tobe_mermaid_path":  result.get("tobe_mermaid_path"),
         "diagram_type":   diagram_type,
         "mode":           mode,
         "eval_score":     eval_score,

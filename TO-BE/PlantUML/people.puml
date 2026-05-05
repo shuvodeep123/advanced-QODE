@@ -3,43 +3,43 @@
 
 left to right direction
 
-actor "Business" as Business
-actor "ITLead" as ITLead
-actor "Ops-Rel" as Ops_Rel
-actor "Architect" as Architect
-actor "QA)" as QA_
-actor "QA" as QA
-actor "lead" as lead
-actor "Ops-Infra" as Ops_Infra
+actor "Business\n(IMPROVED: clearer requirement ownership)" as Business
+actor "quality risk escalation" as ITLead
+actor "IMPROVED: reliability/design governance" as Ops_Rel
+actor "architecture direction" as Architect
+actor "IMPROVED: early quality coaching" as QA_
+actor "IMPROVED: production quality feedback" as QA
+actor "IMPROVED: platform constraints into pipeline governance" as lead
+actor "IMPROVED: deployment/environment automation alignment" as Ops_Infra
 actor "Ops" as Ops
 actor "Dev" as Dev
 actor "Rel" as Rel
 actor "DevOps" as DevOps
 actor "Infra" as Infra
 
-Business --> ITLead
-Business --> ITLead
+Business --> ITLead : business priorities / portfolio alignment
+Business --> ITLead : requirement escalation / approval
 ITLead --> Ops
-ITLead --> ITLead
-ITLead --> ITLead
-ITLead --> Architect
-ITLead --> ITLead
-Architect --> ITLead
-ITLead --> ITLead
-ITLead --> ITLead
-ITLead --> ITLead
+ITLead --> ITLead : governance decisions
+ITLead --> ITLead : delivery oversight
+ITLead --> Architect : architecture direction
+ITLead --> ITLead : portfolio prioritisation
+Architect --> ITLead : architecture recommendations
+ITLead --> ITLead : risk acceptance
+ITLead --> ITLead : delivery governance
+ITLead --> ITLead : cross-team alignment
 ITLead --> Dev
 ITLead --> Dev
-QA_ --> QA
-QA_ --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-Architect --> QA
-ITLead --> QA
+QA_ --> QA : test evidence / quality feedback
+QA_ --> QA : defect triage collaboration
+QA --> QA : test planning
+QA --> QA : test execution
+QA --> QA : defect validation
+QA --> QA : regression assurance
+QA --> QA : quality metrics review
+QA --> QA : release test sign-off
+Architect --> QA : testability / NFR validation guidance
+ITLead --> QA : quality gate expectations
 ITLead --> Ops
 ITLead --> Ops
 Rel --> DevOps
@@ -59,26 +59,26 @@ QA_ --> Dev
 QA_ --> Dev
 QA_ --> Dev
 QA_ --> Dev
-QA_ --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> QA
-QA --> ITLead
+QA_ --> QA : formal QA handoff / validation
+QA --> QA : functional testing
+QA --> QA : non-functional validation
+QA --> QA : acceptance test support
+QA --> QA : automation framework governance
+QA --> QA : quality coaching
+QA --> QA : risk-based test strategy
+QA --> QA : defect trend analysis
+QA --> QA : release quality reporting
+QA --> QA : test data coordination
+QA --> QA : test evidence management
+QA --> QA : regression governance
+QA --> QA : quality risk acceptance input
+QA --> QA : exploratory testing
+QA --> QA : UAT support
+QA --> QA : defect lifecycle governance
+QA --> ITLead : quality risk escalation
 ITLead --> Dev
 QA_ --> Dev
-QA_ --> QA
+QA_ --> QA : shared quality accountability
 ITLead --> Ops
 ITLead --> Ops
 Rel --> Ops
@@ -96,5 +96,14 @@ Rel --> Ops
 Rel --> Ops
 Rel --> Ops
 Rel --> Ops
+lead --> Dev
+lead --> QA : IMPROVED: automated quality gates coordination
+lead --> Ops
+lead --> Ops
+Architect --> Dev
+Architect --> Ops
+QA --> Dev
+Rel --> QA : IMPROVED: production quality feedback
+Infra --> DevOps
 
 @enduml

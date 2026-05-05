@@ -1,9 +1,148 @@
 @startuml
 ' Process Architecture Diagram
 
-rectangle "(Jira)" as _Jira_
-rectangle "E1" as E1
+rectangle "node" as node
+rectangle "E0\nRequirement\n(Jira)\nIMPROVED: AI-assisted requirement intake, duplicate detection, prioritization" as E0
+rectangle "A1 critical: Jira requirement intake - AI-assisted BRS drafting" as E1
+rectangle "A2 critical: BRS - SRS" as E2
+rectangle "A4 parallel SRS path" as E3
+rectangle "A16 compliance check" as E4
+rectangle "A21(A) parallel consolidation" as E5
+rectangle "A22 architecture review" as E6
+rectangle "A24(A) critical approval dependency" as E7
+rectangle "A25 baseline" as E8
+rectangle "A29 critical: requirement trace update" as E9
+rectangle "A31 Jira-SRS sync" as E10
+rectangle "A34 Dev/QA review" as E11
+rectangle "A36 Dev/QA review" as E12
+rectangle "A39(A) review gate" as E13
+rectangle "A40 critical: BDD test design" as E14
+rectangle "A42 alternate test design" as E15
+rectangle "A46(A)" as E16
+rectangle "A47(A)" as E17
+rectangle "A50(A) traceability" as E18
+rectangle "A98(A)" as E19
+rectangle "A106 DevOps IaC review" as E20
+rectangle "A113 environment template" as E21
+rectangle "A115 Puppet template" as E22
+rectangle "A127 ServiceNow request" as E23
+rectangle "A128 approval/risk gate" as E24
+rectangle "A136(A) environment provision" as E25
+rectangle "A164(A) readiness evidence" as E26
+rectangle "A206 critical: environment ready - code" as E27
+rectangle "A212 DB migration code" as E28
+rectangle "A226 critical: static analysis" as E29
+rectangle "A229 critical: source control / PR gate" as E30
+rectangle "A232 migration review" as E31
+rectangle "A245 critical: Maven build" as E32
+rectangle "A258 automated test" as E33
+rectangle "A260 DB regression test" as E34
+rectangle "A273 environment request" as E35
+rectangle "A274 coverage expansion" as E36
+rectangle "A279 Selenium script" as E37
+rectangle "A280 Selenium script" as E38
+rectangle "A283(A) trace-based perf script" as E39
+rectangle "A284(A) trace-based perf script" as E40
+rectangle "A305 Selenium result" as E41
+rectangle "A306 Selenium result" as E42
+rectangle "A309 JMeter result" as E43
+rectangle "A310 JMeter result" as E44
+rectangle "A329(C) performance defect" as E45
+rectangle "A330 triage checklist" as E46
+rectangle "A332 fix implementation" as E47
+rectangle "A333 trace fix in Jira" as E48
+rectangle "A334 release checklist" as E49
+rectangle "A335(A) release planning" as E50
+rectangle "A336 release plan refinement" as E51
+rectangle "A347 critical: deploy request" as E52
+rectangle "A348 deploy request" as E53
+rectangle "A352(A)" as E54
+rectangle "A354(A)" as E55
+rectangle "A363 promotion" as E56
+rectangle "A364 promotion" as E57
+rectangle "A366(A) runtime feedback gate" as E58
+rectangle "A368(A) runtime feedback gate" as E59
+rectangle "A377(A) OverOps runtime report" as E60
 
-_Jira_ --> E1
+E0 --> E1 : A1 critical: Jira requirement intake - AI-assisted BRS drafting
+E1 --> E2 : A2 critical: BRS - SRS
+E1 --> E3 : A4 parallel SRS path
+E2 --> E4 : A16 compliance check
+E2 --> E5 : A21 critical: SRS consolidation
+E3 --> E5 : A21(A) parallel consolidation
+E5 --> E6 : A22 architecture review
+E5 --> E7 : A24 IT review
+E6 --> E7 : A24(A) critical approval dependency
+E7 --> E8 : A25 baseline
+E7 --> E9 : A29 critical: requirement trace update
+E9 --> E10 : A31 Jira-SRS sync
+E9 --> E11 : A34 Dev/QA review
+E9 --> E12 : A36 Dev/QA review
+E11 --> E13 : A39 review gate
+E12 --> E13 : A39(A) review gate
+E13 --> E14 : A40 critical: BDD test design
+E13 --> E15 : A42 alternate test design
+E14 --> E16 : A46 critical: script creation
+E15 --> E16 : A46(A)
+E14 --> E17 : A47
+E15 --> E17 : A47(A)
+E6 --> E18 : A50 traceability
+E9 --> E18 : A50(A) traceability
+E2 --> E19 : A98 infra requirement path
+E3 --> E19 : A98(A)
+E19 --> E20 : A106 DevOps IaC review
+E24 --> E21 : A113 environment template
+E19 --> E22 : A115 Puppet template
+E22 --> E23 : A127 ServiceNow request
+E23 --> E24 : A128 approval/risk gate
+E24 --> E25 : A136 environment provision
+E35 --> E25 : A136(A) environment provision
+E21 --> E26 : A164 readiness evidence
+E25 --> E26 : A164(A) readiness evidence
+E26 --> E27 : A206 critical: environment ready - code
+E26 --> E28 : A212 DB migration code
+E27 --> E29 : A226 critical: static analysis
+E29 --> E30 : A229 critical: source control / PR gate
+E28 --> E31 : A232 migration review
+E30 --> E32 : A245 critical: Maven build
+E30 --> E33 : A258 automated test
+E31 --> E34 : A260 DB regression test
+E23 --> E35 : A273 environment request
+E13 --> E36 : A274 coverage expansion
+E16 --> E37 : A279 Selenium script
+E17 --> E38 : A280 Selenium script
+E16 --> E39 : A283 JMeter script
+E18 --> E39 : A283(A) trace-based perf script
+E17 --> E40 : A284 JMeter script
+E18 --> E40 : A284(A) trace-based perf script
+E37 --> E41 : A305 Selenium result
+E38 --> E42 : A306 Selenium result
+E39 --> E43 : A309 JMeter result
+E40 --> E44 : A310 JMeter result
+E41 --> E45 : A329 defect creation
+E42 --> E45 : A329(A) defect creation
+E43 --> E45 : A329(B) performance defect
+E44 --> E45 : A329(C) performance defect
+E45 --> E46 : A330 triage checklist
+E46 --> E47 : A332 fix implementation
+E47 --> E48 : A333 trace fix in Jira
+E48 --> E49 : A334 release checklist
+E2 --> E50 : A335 release planning
+E3 --> E50 : A335(A) release planning
+E50 --> E51 : A336 release plan refinement
+E49 --> E52 : A347 critical: deploy request
+E49 --> E53 : A348 deploy request
+E49 --> E54 : A352 deploy orchestration
+E52 --> E54 : A352(A)
+E49 --> E55 : A354 deploy orchestration
+E53 --> E55 : A354(A)
+E54 --> E56 : A363 promotion
+E55 --> E57 : A364 promotion
+E56 --> E58 : A366 release verification
+E60 --> E58 : A366(A) runtime feedback gate
+E57 --> E59 : A368 release verification
+E60 --> E59 : A368(A) runtime feedback gate
+E54 --> E60 : A377 OverOps runtime report
+E55 --> E60 : A377(A) OverOps runtime report
 
 @enduml

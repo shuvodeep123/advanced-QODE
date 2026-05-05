@@ -1,0 +1,210 @@
+flowchart TD
+E0["E0<br/>Requirement<br/>(Jira)<br/>IMPROVED: AI-assisted intake"]
+E1["E1<br/>Requirements to BRS<br/>(Confluence)<br/>IMPROVED: AI BRS drafting"]
+E2["E2<br/>BRS to SRS<br/>(Confluence)<br/>IMPROVED: AI SRS transformation"]
+E3["E3<br/>BRS to SRS<br/>(Confluence)<br/>IMPROVED: AI SRS refinement"]
+E4["E4<br/>IT handbook to SRS<br/>(Confluence)<br/>IMPROVED: compliance agent"]
+E5["E5<br/>BRS to SRS<br/>(Confluence)<br/>IMPROVED: SRS consolidation"]
+E6["E6<br/>SRS to SRS<br/>(Confluence)<br/>IMPROVED: architecture review automation"]
+E7["E7<br/>SRS to SRS<br/>(Confluence)<br/>IMPROVED: approval summarization"]
+E8["E8<br/>BRS/SRS to BRS/SRS<br/>(Confluence)<br/>IMPROVED: baseline diff automation"]
+E9["E9<br/>Requirements to Requirements<br/>(Jira)<br/>IMPROVED: traceability agent"]
+E10["E10<br/>Requirements to SRS<br/>(Jira)<br/>IMPROVED: trace sync validation"]
+E11["E11<br/>Requirements to SRS<br/>(Confluence)<br/>IMPROVED: Dev/QA review copilot"]
+E12["E12<br/>Requirements to SRS<br/>(Confluence)<br/>IMPROVED: Dev/QA review copilot"]
+E13["E13<br/>Requirements to Review Gate<br/>(Confluence)<br/>IMPROVED: explicit review gate"]
+E14["E14<br/>Requirements to Test case<br/>(JBehave)<br/>IMPROVED: AI BDD generation"]
+E15["E15<br/>Requirements to Test case<br/>(JBehave)<br/>IMPROVED: edge-case generation"]
+E16["E16<br/>Test case to Test script<br/>(JBehave)<br/>IMPROVED: script scaffolding"]
+E17["E17<br/>Test case to Test script<br/>(JBehave)<br/>IMPROVED: step reuse suggestions"]
+E18["E18<br/>Test case to Requirements<br/>(Jira)<br/>IMPROVED: test traceability"]
+E19["E19<br/>Requirements to Infra as code<br/>(Puppet)<br/>IMPROVED: IaC mapping"]
+E20["E20<br/>Requirements to Infra as code<br/>(Puppet)<br/>IMPROVED: DevOps review automation"]
+E21["E21<br/>Template to Environment<br/>(Puppet)<br/>IMPROVED: template validation"]
+E22["E22<br/>Template to Infra as code<br/>(Puppet)<br/>IMPROVED: module recommendation"]
+E23["E23<br/>Template to Service request<br/>(ServiceNow)<br/>IMPROVED: request auto-population"]
+E24["E24<br/>Service request to Infra as code<br/>(ServiceNow)<br/>IMPROVED: risk scoring"]
+E25["E25<br/>Infra as code to Environment<br/>(Puppet)<br/>IMPROVED: drift/preflight validation"]
+E26["E26<br/>Environment to Service request<br/>(ServiceNow)<br/>IMPROVED: readiness evidence"]
+E27["E27<br/>Requirements to Code<br/>(Text editor UNIX/LINUX)<br/>IMPROVED: AI coding assistance"]
+E28["E28<br/>Design to Code<br/>(Flyway)<br/>IMPROVED: migration checks"]
+E29["E29<br/>Code to Code<br/>(SonarQube)<br/>IMPROVED: AI finding triage"]
+E30["E30<br/>Code to Code<br/>(GitHub / GitLab)<br/>IMPROVED: AI PR review"]
+E31["E31<br/>Code to Code<br/>(Flyway)<br/>IMPROVED: schema review"]
+E32["E32<br/>Code to Code<br/>(Maven)<br/>IMPROVED: build anomaly detection"]
+E33["E33<br/>Code to Test result<br/>(Selenium)<br/>IMPROVED: regression prioritization"]
+E34["E34<br/>Code to Test result<br/>(Selenium)<br/>IMPROVED: DB regression validation"]
+E35["E35<br/>Service request to Environment<br/>(ServiceNow)<br/>IMPROVED: fulfilment workflow"]
+E36["E36<br/>Requirements to Test case<br/>(JBehave)<br/>IMPROVED: coverage agent"]
+E37["E37<br/>Test case to Test script<br/>(Selenium)<br/>IMPROVED: script generation aid"]
+E38["E38<br/>Test case to Test script<br/>(Selenium)<br/>IMPROVED: locator/self-healing suggestions"]
+E39["E39<br/>Test case to Test script<br/>(JMeter)<br/>IMPROVED: perf template generation"]
+E40["E40<br/>Test case to Test script<br/>(JMeter)<br/>IMPROVED: workload suggestion"]
+E41["E41<br/>Test script to Test result<br/>(Selenium)<br/>IMPROVED: flaky-test detection"]
+E42["E42<br/>Test case to Test result<br/>(Selenium)<br/>IMPROVED: result classification"]
+E43["E43<br/>Test script to Test result<br/>(JMeter)<br/>IMPROVED: perf anomaly detection"]
+E44["E44<br/>Test case to Test result<br/>(JMeter)<br/>IMPROVED: SLA evaluation"]
+E45["E45<br/>Test result to Defect<br/>(Jira)<br/>IMPROVED: defect deduplication"]
+E46["E46<br/>Defect to Checklist<br/>(Jira)<br/>IMPROVED: triage checklist"]
+E47["E47<br/>Defect to Code<br/>(Text editor UNIX/LINUX)<br/>IMPROVED: fix recommendation"]
+E48["E48<br/>Defect to Code<br/>(Jira)<br/>IMPROVED: code trace update"]
+E49["E49<br/>Test result to Checklist<br/>(Jira)<br/>IMPROVED: release readiness automation"]
+E50["E50<br/>Requirements to Release plan<br/>(Jira)<br/>IMPROVED: scope clustering"]
+E51["E51<br/>Requirements to Release plan<br/>(Jira)<br/>IMPROVED: risk/dependency scoring"]
+E52["E52<br/>Service request to Code<br/>(XL Deploy)<br/>IMPROVED: package validation"]
+E53["E53<br/>Service request to Code<br/>(XL Deploy)<br/>IMPROVED: approval evidence"]
+E54["E54<br/>Service request to Code<br/>(XL Deploy)<br/>IMPROVED: deployment quality gate"]
+E55["E55<br/>Service request to Code<br/>(XL Deploy)<br/>IMPROVED: parallel deployment quality gate"]
+E56["E56<br/>Service request to Code<br/>(XL Deploy)<br/>IMPROVED: promotion automation"]
+E57["E57<br/>Service request to Code<br/>(XL Deploy)<br/>IMPROVED: promotion automation"]
+E58["E58<br/>Service request to Code<br/>(XL Deploy)<br/>IMPROVED: release verification"]
+E59["E59<br/>Service request to Code<br/>(XL Deploy)<br/>IMPROVED: release verification"]
+E60["E60<br/>Code to Report<br/>(OverOps)<br/>IMPROVED: runtime RCA feedback"]
+
+E0 -->|A1 critical| E1
+E1 -->|A2 critical| E2
+E1 -->|A4 parallel| E3
+E2 -->|A16 compliance| E4
+E2 -->|A21 critical| E5
+E3 -->|A21A| E5
+E5 -->|A22| E6
+E5 -->|A24| E7
+E6 -->|A24A critical| E7
+E7 -->|A25| E8
+E7 -->|A29 critical| E9
+E9 -->|A31| E10
+E9 -->|A34| E11
+E9 -->|A36| E12
+E11 -->|A39| E13
+E12 -->|A39A| E13
+E13 -->|A40 critical| E14
+E13 -->|A42| E15
+E14 -->|A46 critical| E16
+E15 -->|A46A| E16
+E14 -->|A47| E17
+E15 -->|A47A| E17
+E6 -->|A50| E18
+E9 -->|A50A| E18
+E2 -->|A98| E19
+E3 -->|A98A| E19
+E19 -->|A106| E20
+E24 -->|A113| E21
+E19 -->|A115| E22
+E22 -->|A127| E23
+E23 -->|A128| E24
+E24 -->|A136| E25
+E35 -->|A136A| E25
+E21 -->|A164| E26
+E25 -->|A164A| E26
+E26 -->|A206 critical| E27
+E26 -->|A212| E28
+E27 -->|A226 critical| E29
+E29 -->|A229 critical| E30
+E28 -->|A232| E31
+E30 -->|A245 critical| E32
+E30 -->|A258| E33
+E31 -->|A260| E34
+E23 -->|A273| E35
+E13 -->|A274| E36
+E16 -->|A279| E37
+E17 -->|A280| E38
+E16 -->|A283| E39
+E18 -->|A283A| E39
+E17 -->|A284| E40
+E18 -->|A284A| E40
+E37 -->|A305| E41
+E38 -->|A306| E42
+E39 -->|A309| E43
+E40 -->|A310| E44
+E41 -->|A329| E45
+E42 -->|A329A| E45
+E43 -->|A329B| E45
+E44 -->|A329C| E45
+E45 -->|A330| E46
+E46 -->|A332| E47
+E47 -->|A333| E48
+E48 -->|A334| E49
+E2 -->|A335| E50
+E3 -->|A335A| E50
+E50 -->|A336| E51
+E49 -->|A347 critical| E52
+E49 -->|A348| E53
+E49 -->|A352| E54
+E52 -->|A352A| E54
+E49 -->|A354| E55
+E53 -->|A354A| E55
+E54 -->|A363| E56
+E55 -->|A364| E57
+E56 -->|A366| E58
+E60 -->|A366A feedback gate| E58
+E57 -->|A368| E59
+E60 -->|A368A feedback gate| E59
+E54 -->|A377| E60
+E55 -->|A377A| E60
+
+classDef kept fill:#1e3a5f,stroke:#3b82f6,color:#e0e7ff
+classDef improved fill:#1d4ed8,stroke:#60a5fa,color:#fff
+classDef new fill:#065f46,stroke:#34d399,color:#fff
+classDef replaced fill:#7f1d1d,stroke:#f87171,color:#fff
+
+class E0 improved
+class E1 improved
+class E2 improved
+class E3 improved
+class E4 improved
+class E5 improved
+class E6 improved
+class E7 improved
+class E8 improved
+class E9 improved
+class E10 improved
+class E11 improved
+class E12 improved
+class E13 improved
+class E14 improved
+class E15 improved
+class E16 improved
+class E17 improved
+class E18 improved
+class E19 improved
+class E20 improved
+class E21 improved
+class E22 improved
+class E23 improved
+class E24 improved
+class E25 improved
+class E26 improved
+class E27 improved
+class E28 improved
+class E29 improved
+class E30 improved
+class E31 improved
+class E32 improved
+class E33 improved
+class E34 improved
+class E35 improved
+class E36 improved
+class E37 improved
+class E38 improved
+class E39 improved
+class E40 improved
+class E41 improved
+class E42 improved
+class E43 improved
+class E44 improved
+class E45 improved
+class E46 improved
+class E47 improved
+class E48 improved
+class E49 improved
+class E50 improved
+class E51 improved
+class E52 improved
+class E53 improved
+class E54 improved
+class E55 improved
+class E56 improved
+class E57 improved
+class E58 improved
+class E59 improved
+class E60 improved

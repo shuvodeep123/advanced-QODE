@@ -44,15 +44,15 @@ logger = logging.getLogger(__name__)
 # load_dotenv(override=True) call anywhere before the first LLM request
 # is always picked up, even if this module was imported earlier.
 # ---------------------------------------------------------------------------
-MODEL = os.environ.get("HF_MODEL")
 # Temperature — keep low for RAG use cases so answers stay grounded in context.
 # Override via LLM_TEMPERATURE in .env (float, 0.0–1.0).
 _TEMPERATURE: float = float(os.environ.get("LLM_TEMPERATURE", "0.1"))
 # Per-request timeout in seconds.  Kept under Cloudflare's 120s proxy limit
 # so Python raises a clean error rather than waiting for Cloudflare's 524.
 _TIMEOUT: float = float(os.environ.get("LLM_TIMEOUT", "90"))
-# Maximum number of automatic retries on transient 5xx / timeout errors.
-_MAX_RETRIES: int = int(os.environ.get("LLM_MAX_RETRIES", "3"))
+# Maximum number of automatic retries *per provider* on transient 5xx / timeout errors.
+# After exhausting retries on one provider, the next provider in the chain is tried.
+_MAX_RETRIES: int = int(os.environ.get("LLM_MAX_RETRIES", "2"))
 # Initial backoff (seconds) before the first retry; doubles each attempt.
 _BACKOFF_BASE: float = 5.0
 
@@ -68,11 +68,149 @@ _HF_MAX_NEW_TOKENS: int = int(os.environ.get("HF_MAX_NEW_TOKENS", "2048"))
 
 
 # ---------------------------------------------------------------------------
-# Retry helpers
+# Provider chain — multi-LLM automatic failover
+# ---------------------------------------------------------------------------
+# Configure providers in .env using numbered variables:
+#   LLM_PROVIDER_1_TOKEN / _MODEL / _URL  (primary)
+#   LLM_PROVIDER_2_TOKEN / _MODEL / _URL  (first fallback)
+#   LLM_PROVIDER_3_TOKEN / _MODEL / _URL  (second fallback) … up to 9
+# If LLM_PROVIDER_1_* is absent, the legacy HF_TOKEN / HF_MODEL / HF_BASE_URL
+# vars are used as provider 1 automatically (backward compatible).
+# ---------------------------------------------------------------------------
+
+class _LLMProvider:
+    """One entry in the ordered LLM fallback chain."""
+
+    def __init__(self, name: str, token: str, base_url: str, model: str) -> None:
+        self.name     = name
+        self.token    = token
+        self.base_url = base_url
+        self.model    = model
+        self._client: OpenAI | None = None
+
+    def client(self) -> OpenAI:
+        """Return (or lazily create) the OpenAI client for this provider."""
+        if self._client is None:
+            self._client = OpenAI(
+                api_key=self.token,
+                base_url=self.base_url or None,
+            )
+        return self._client
+
+    def __repr__(self) -> str:
+        return f"<LLMProvider name={self.name!r} model={self.model!r}>"
+
+
+def _build_provider_chain() -> list[_LLMProvider]:
+    """Build the ordered provider list from environment variables.
+
+    Reads ``LLM_PROVIDER_N_TOKEN`` / ``_MODEL`` / ``_URL`` for N = 1 … 9.
+    When N = 1 entries are absent, falls back to the legacy ``HF_TOKEN`` /
+    ``HF_MODEL`` / ``HF_BASE_URL`` variables (backward compatibility).
+    Stops scanning at the first N where ``TOKEN`` is not set.
+    """
+    providers: list[_LLMProvider] = []
+    for n in range(1, 10):
+        prefix = f"LLM_PROVIDER_{n}_"
+        token = os.environ.get(f"{prefix}TOKEN")
+        model = os.environ.get(f"{prefix}MODEL")
+        url   = os.environ.get(f"{prefix}URL")
+
+        if n == 1 and not token:
+            # Legacy backward-compat: provider 1 falls back to HF_* vars
+            token = os.environ.get("HF_TOKEN")
+            model = model or os.environ.get("HF_MODEL", "")
+            url   = url   or os.environ.get("HF_BASE_URL", "")
+
+        if not token:
+            break  # gap in numbering — stop scanning
+
+        host = (
+            (url or "local")
+            .replace("https://", "")
+            .replace("http://", "")
+            .split("/")[0]
+        )
+        providers.append(_LLMProvider(
+            name=f"P{n}\u00b7{host}",
+            token=token,
+            base_url=url or "",
+            model=model or "",
+        ))
+
+    if not providers:
+        raise EnvironmentError(
+            "No LLM providers configured. "
+            "Set HF_TOKEN in .env or add LLM_PROVIDER_1_TOKEN / _MODEL / _URL."
+        )
+
+    if len(providers) > 1:
+        chain_str = " \u2192 ".join(p.name for p in providers)
+        logger.info("LLM fallback chain (%d providers): %s", len(providers), chain_str)
+    else:
+        logger.info("LLM provider: %s", providers[0].name)
+
+    return providers
+
+
+# Lazy singleton — built on first use so .env changes before first call are picked up.
+_PROVIDERS: list[_LLMProvider] = []
+# Backward-compatible module-level model name (used as default arg sentinel).
+MODEL: str = os.environ.get("LLM_PROVIDER_1_MODEL") or os.environ.get("HF_MODEL", "")
+
+
+def _get_providers() -> list[_LLMProvider]:
+    global _PROVIDERS
+    if not _PROVIDERS:
+        _PROVIDERS = _build_provider_chain()
+    return _PROVIDERS
+
+
+# ---------------------------------------------------------------------------
+# Public model-switching API
+# ---------------------------------------------------------------------------
+
+def get_active_model() -> str:
+    """Return the model name currently used by the primary provider."""
+    providers = _get_providers()
+    return providers[0].model if providers else MODEL
+
+
+def set_active_model(model: str) -> None:
+    """Switch the primary provider to *model* for all subsequent calls.
+
+    Updates provider 1's model name in-place so the already-built OpenAI
+    client is reused — only the model field in the request payload changes.
+    Also persists the choice to ``os.environ`` so that any re-import or
+    ``reload()`` of this module picks up the new value.
+    """
+    providers = _get_providers()
+    if providers:
+        providers[0].model = model
+    os.environ["HF_MODEL"] = model
+
+
+def get_available_models() -> list[str]:
+    """Return selectable model IDs from the ``LLM_MODELS`` env var.
+
+    Reads a comma-separated list; always ensures the currently active
+    model appears first so the selector stays consistent even when the
+    user enters a custom ID not in the configured list.
+    """
+    raw = os.environ.get("LLM_MODELS", "")
+    models: list[str] = [m.strip() for m in raw.split(",") if m.strip()]
+    active = get_active_model()
+    if active and active not in models:
+        models.insert(0, active)
+    return models
+
+
+# ---------------------------------------------------------------------------
+# Retry / fallback helpers
 # ---------------------------------------------------------------------------
 
 def _is_retryable(exc: Exception) -> bool:
-    """Return True for transient errors that are worth retrying."""
+    """Return True for transient errors worth retrying or switching provider for."""
     if isinstance(exc, (APITimeoutError, APIConnectionError)):
         return True
     if isinstance(exc, APIStatusError):
@@ -81,33 +219,52 @@ def _is_retryable(exc: Exception) -> bool:
     return False
 
 
-def _call_with_retry(fn, *args, **kwargs):
-    """Call *fn(\*args, \*\*kwargs)* with exponential-backoff retry.
+def _call_with_fallback(messages: list[dict], **api_kwargs):
+    """Try each provider in order with per-provider exponential-backoff retry.
 
-    Retries up to ``_MAX_RETRIES`` times on retryable errors, doubling the
-    wait between attempts.  Re-raises on non-retryable errors immediately.
+    For each provider, attempts up to ``_MAX_RETRIES + 1`` times before moving
+    to the next one.  Returns ``(response, provider)`` from the first success.
+    Raises the last exception if every provider exhausts its retries.
     """
-    delay = _BACKOFF_BASE
+    providers = _get_providers()
     last_exc: Exception | None = None
-    for attempt in range(1, _MAX_RETRIES + 2):  # +2 so the last attempt still runs
-        try:
-            return fn(*args, **kwargs)
-        except Exception as exc:
-            if not _is_retryable(exc):
-                raise
-            last_exc = exc
-            if attempt <= _MAX_RETRIES:
-                logger.warning(
-                    "LLM request failed (attempt %d/%d): %s — retrying in %.0fs …",
-                    attempt, _MAX_RETRIES + 1, exc, delay,
+
+    for provider in providers:
+        delay = _BACKOFF_BASE
+        for attempt in range(1, _MAX_RETRIES + 2):
+            try:
+                response = provider.client().chat.completions.create(
+                    model=provider.model,
+                    messages=messages,
+                    temperature=_TEMPERATURE,
+                    timeout=_TIMEOUT,
+                    **api_kwargs,
                 )
-                time.sleep(delay)
-                delay *= 2
-            else:
-                logger.error(
-                    "LLM request failed after %d attempts: %s",
-                    _MAX_RETRIES + 1, exc,
-                )
+                if provider is not providers[0] or attempt > 1:
+                    logger.info(
+                        "LLM call succeeded via %s (attempt %d)",
+                        provider.name, attempt,
+                    )
+                return response, provider
+            except Exception as exc:
+                if not _is_retryable(exc):
+                    raise
+                last_exc = exc
+                if attempt <= _MAX_RETRIES:
+                    logger.warning(
+                        "[%s] attempt %d/%d failed: %s — retrying in %.0fs …",
+                        provider.name, attempt, _MAX_RETRIES + 1,
+                        type(exc).__name__, delay,
+                    )
+                    time.sleep(delay)
+                    delay *= 2
+                else:
+                    logger.warning(
+                        "[%s] all %d attempt(s) exhausted (%s) — switching to next provider …",
+                        provider.name, _MAX_RETRIES + 1, type(exc).__name__,
+                    )
+                    break  # inner loop done — try next provider
+
     raise last_exc  # type: ignore[misc]
 
 
@@ -251,38 +408,15 @@ def _extract_thinking(text: str) -> tuple[str, str]:
     return thinking, clean
 
 
-def _validate_config(api_key: str | None) -> None:
-    """Raise a clear error if the API key is missing."""
-    if not api_key:     
-        raise EnvironmentError(
-            "API token is not configured. "
-            "Set HF_TOKEN in .env or export HF_TOKEN=<your-token>."
-        )
 
-
-_client: OpenAI | None = None
-
-
-def _get_client() -> OpenAI:
-    """Return a cached OpenAI client pointed at the configured endpoint.
-
-    Reads HF_TOKEN and HF_BASE_URL fresh from the environment on every
-    cold-start so that .env changes take effect without restarting Python"""
-    global _client
-    if _client is None:
-        api_key = os.environ.get("HF_TOKEN")
-        base_url = os.environ.get("HF_BASE_URL")
-        _validate_config(api_key)
-        _client = OpenAI(api_key=api_key, base_url=base_url)
-    return _client
 
 
 def chat(messages: list[dict], model: str = MODEL) -> str:
     """Send *messages* to the LLM and return the full response text.
 
     Routes to the local HuggingFace transformers backend when
-    ``HF_USE_LOCAL=true`` is set; otherwise uses the remote OpenAI-compatible
-    API endpoint with automatic retry on transient failures.
+    ``HF_USE_LOCAL=true`` is set; otherwise walks the provider fallback
+    chain until a response is received.
     """
     if _HF_USE_LOCAL:
         reply = _local_chat(messages)
@@ -296,28 +430,23 @@ def chat(messages: list[dict], model: str = MODEL) -> str:
         )
         return reply
 
-    response = _call_with_retry(
-        _get_client().chat.completions.create,
-        model=model,
-        messages=messages,
-        temperature=_TEMPERATURE,
-        timeout=_TIMEOUT,
-    )
+    response, provider = _call_with_fallback(messages)
     # Record exact usage from the response object (always present for non-streaming)
     usage = getattr(response, "usage", None)
     if usage:
         record_call(
             prompt_tokens=usage.prompt_tokens,
             completion_tokens=usage.completion_tokens,
-            model=model,
+            model=provider.model,
         )
     else:
-        # Fallback: estimate prompt tokens; completion approximated from reply length
         reply = response.choices[0].message.content or ""
         record_call(
-            prompt_tokens=estimate_tokens(messages, model),
-            completion_tokens=estimate_tokens([{"role": "assistant", "content": reply}], model),
-            model=model,
+            prompt_tokens=estimate_tokens(messages, provider.model),
+            completion_tokens=estimate_tokens(
+                [{"role": "assistant", "content": reply}], provider.model
+            ),
+            model=provider.model,
         )
     return response.choices[0].message.content
 
@@ -328,12 +457,15 @@ def chat_stream(messages: list[dict], model: str = MODEL) -> Iterator[str]:
     Yields individual text chunks as they arrive, suitable for use with
     ``st.write_stream()`` in Streamlit.
 
+    Connection-phase errors trigger the provider fallback chain; once a
+    stream is established, tokens are yielded from that provider.
+
     When ``HF_USE_LOCAL=true`` streams via ``TextIteratorStreamer`` from the
-    local model; otherwise streams from the remote OpenAI-compatible endpoint.
+    local model; otherwise streams from the remote provider chain.
 
     Args:
         messages: OpenAI-format message list.
-        model:    Model identifier (default: ``MODEL``).
+        model:    Ignored — each provider uses its own configured model.
 
     Yields:
         String fragments of the assistant reply.
@@ -353,17 +485,13 @@ def chat_stream(messages: list[dict], model: str = MODEL) -> Iterator[str]:
         )
         return
 
-    stream = _call_with_retry(
-        _get_client().chat.completions.create,
-        model=model,
-        messages=messages,
-        temperature=_TEMPERATURE,
-        timeout=_TIMEOUT,
+    stream, provider = _call_with_fallback(
+        messages,
         stream=True,
         stream_options={"include_usage": True},
     )
     # Estimate prompt tokens upfront (streaming usage arrives only at the final chunk)
-    estimated_prompt = estimate_tokens(messages, model)
+    estimated_prompt = estimate_tokens(messages, provider.model)
     completion_text: list[str] = []
     usage_recorded = False
     for chunk in stream:
@@ -377,7 +505,7 @@ def chat_stream(messages: list[dict], model: str = MODEL) -> Iterator[str]:
             record_call(
                 prompt_tokens=usage.prompt_tokens or 0,
                 completion_tokens=usage.completion_tokens or 0,
-                model=model,
+                model=provider.model,
             )
             usage_recorded = True
     # Fallback if the endpoint did not return usage in the stream
@@ -385,7 +513,7 @@ def chat_stream(messages: list[dict], model: str = MODEL) -> Iterator[str]:
         record_call(
             prompt_tokens=estimated_prompt,
             completion_tokens=estimate_tokens(
-                [{"role": "assistant", "content": "".join(completion_text)}], model
+                [{"role": "assistant", "content": "".join(completion_text)}], provider.model
             ),
-            model=model,
+            model=provider.model,
         )
