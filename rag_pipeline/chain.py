@@ -32,6 +32,13 @@ from .graph_retriever import get_retriever
 from .diagram_executor import run as run_diagram, get_dot_path, ASIS_DIRS, TOBE_DIRS, dot_to_drawio, dot_to_plantuml, dot_to_mermaid, _validate_mermaid
 from .principles_engine import PrinciplesEngine, extract_principle_context
 from .langfuse_tracer import get_tracer
+from .diagram_schema import DiagramAsIs, DiagramToBe
+from .image_generator import generate_report_images
+from .guardrails_config import (
+    validate_conversation,
+    ASIS_GROUNDEDNESS_RULES,
+    CONVERSATION_QUALITY_RULES,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +173,8 @@ _NARRATIVE_KEYWORDS = [
     "assessment", "maturity", "report", "summary",
     "strategy", "assess", "review", "across all",
     "all engineering", "all principles",
+    "success metrics", "metrics", "days", "timeline",
+    "propensity", "people propensity", "organizational",
 ]
 _DIAGRAM_NOUN_KEYWORDS = ["diagram", "chart", "flowchart", "architecture"]
 
@@ -176,11 +185,16 @@ def detect_narrative_request(query: str) -> bool:
     These are follow-up questions (not diagram requests) that produce structured
     narrative output — e.g. 'What improvements are required in Technology Disciplines
     across all engineering principles?' or 'Create a 30-60-90 days plan'.
+
+    Narrative keywords like 'propensity', 'metrics', 'days' override diagram keywords
+    to ensure image generation still happens for context-aware visualization requests.
     """
     lower = query.lower()
     has_narrative = any(kw in lower for kw in _NARRATIVE_KEYWORDS)
+    # Override: if propensity/metrics/days/timeline present, treat as narrative even if "diagram" mentioned
+    has_special_narrative = any(kw in lower for kw in ["propensity", "metrics", "days", "timeline"])
     has_diagram   = any(kw in lower for kw in _DIAGRAM_NOUN_KEYWORDS)
-    return has_narrative and not has_diagram
+    return has_narrative and (has_special_narrative or not has_diagram)
 
 
 def _wants_diagram(query: str) -> bool:
@@ -206,6 +220,8 @@ class AgentState(TypedDict, total=False):
     context_chunks: list[dict]
     # As-Is ground truth — loaded before any LLM call to prevent hallucination
     asis_diagram_data: str | None   # raw DOT text from the questionnaire generator
+    # To-Be diagram data — persisted across turns for follow-up analysis
+    tobe_diagram_data: str | None   # raw DOT text for To-Be architecture (from LLM)
     # gap / impact analysis
     is_gap_analysis: bool           # True when user wants pillar removal impact analysis
     gap_items: list[str]            # pillar / component names to be "removed"
@@ -219,6 +235,7 @@ class AgentState(TypedDict, total=False):
     mode: str            # "asis" | "principles"
     eval_score: float | None
     error: str | None
+    report_images: list[dict] | None  # Generated images for gap/narrative reports
 
 
 # ---------------------------------------------------------------------------
@@ -252,8 +269,16 @@ def _node_load_asis(state: AgentState) -> AgentState:
     from the questionnaire, and stores it in ``state['asis_diagram_data']``.
     The LLM in ``_node_principles`` receives this as verified ground truth.
     Also captures the rendered diagram path so the UI can display it.
+
+    For multi-turn conversations, checks if As-Is data was loaded in a prior turn
+    and reuses it if available.
     """
     intent = state["intent"]
+
+    # ── Check if As-Is data already exists from a prior turn ──────────────────
+    if state.get("asis_diagram_data"):
+        logger.info("As-Is ground truth already loaded in session (reusing from prior turn)")
+        return state
 
     if intent == "general":
         state["asis_diagram_data"] = None
@@ -316,6 +341,43 @@ def _extract_mermaid(text: str) -> str | None:
     return None
 
 
+def _try_extract_diagram_json(text: str, diagram_type: str, is_tobe: bool = False) -> DiagramAsIs | DiagramToBe | None:
+    """Attempt to extract and validate diagram structure from LLM reply.
+
+    Looks for a JSON block containing nodes/edges array within the text.
+    Returns a validated Pydantic model (DiagramAsIs or DiagramToBe) or None.
+    """
+    import json
+    try:
+        # Look for a JSON block within code fence or raw
+        m = re.search(r"```(?:json)?\s*\n?(\{.*?\})\s*```", text, re.DOTALL | re.IGNORECASE)
+        if not m:
+            # Try raw JSON if no fence
+            m = re.search(r"(\{.*?\})", text, re.DOTALL)
+        if not m:
+            return None
+
+        raw_json = m.group(1)
+        data = json.loads(raw_json)
+
+        if not isinstance(data, dict):
+            return None
+
+        # Inject diagram_type if missing
+        if "diagram_type" not in data:
+            data["diagram_type"] = diagram_type
+
+        Model = DiagramToBe if is_tobe else DiagramAsIs
+        try:
+            return Model(**data)
+        except Exception as e:
+            logger.warning("Diagram validation failed: %s", e)
+            return None
+    except (json.JSONDecodeError, KeyError, AttributeError, TypeError) as e:
+        logger.debug("No valid diagram JSON found: %s", e)
+        return None
+
+
 def _extract_dot(text: str) -> str | None:
     """Extract the first Graphviz DOT graph from an LLM reply text.
 
@@ -334,6 +396,40 @@ def _extract_dot(text: str) -> str | None:
     if m:
         return m.group(1).strip()
     return None
+
+
+def _validate_grounding(chunks: list[dict], asis_data: str | None, is_asis: bool, is_gap: bool) -> tuple[bool, str]:
+    """Validate if the query has sufficient context for LLM response.
+
+    Returns (is_grounded, reason_text). For To-Be mode, requires either:
+    - verified As-Is questionnaire data (asis_data) OR
+    - sufficient retrieval context (chunks with quality checks)
+
+    For As-Is/Gap modes, always grounded if we have asis_data.
+    """
+    has_asis_data = bool(asis_data)
+
+    # Filter chunks: require non-empty 'text' field (prevent poisoning by empty dicts)
+    valid_chunks = [
+        c for c in chunks
+        if isinstance(c, dict) and c.get("text") and len(str(c.get("text", "")).strip()) > 10
+    ]
+    has_quality_chunks = len(valid_chunks) > 0
+
+    if is_asis or is_gap:
+        if has_asis_data:
+            return True, "As-Is questionnaire loaded"
+        else:
+            return False, "No As-Is questionnaire data available for analysis"
+
+    # To-Be mode: must have either As-Is or quality context (not just any chunks)
+    if has_asis_data:
+        return True, "Grounded in As-Is questionnaire"
+    if has_quality_chunks:
+        logger.info("Grounded in %d quality context chunk(s)", len(valid_chunks))
+        return True, f"Grounded in {len(valid_chunks)} context chunk(s)"
+
+    return False, "No questionnaire or context available — cannot generate To-Be without grounding"
 
 
 def _node_principles(state: AgentState) -> AgentState:
@@ -362,6 +458,38 @@ def _node_principles(state: AgentState) -> AgentState:
             graph_hops=2,
         )
         state["context_chunks"] = chunks
+
+    # ── Validate context quality against QODE propensities + readiness ──────
+    from . import eval_metrics
+    import json
+    graph_data = {}
+    try:
+        with open(state["graph_path"], "r") as f:
+            graph_data = json.load(f)
+    except Exception as e:
+        logger.warning("Could not load graph for evaluation: %s", e)
+
+    if graph_data:
+        eval_valid = eval_metrics.validate_context_before_llm(graph_data)
+        if not eval_valid:
+            logger.warning("Graph context quality checks raised issues (proceeding with degraded context)")
+
+    # ── Validate grounding before LLM call ──────────────────────────────────
+    is_grounded, reason = _validate_grounding(
+        chunks,
+        state.get("asis_diagram_data"),
+        state.get("is_asis", False),
+        state.get("is_gap_analysis", False),
+    )
+    if not is_grounded:
+        logger.warning("Query not grounded: %s", reason)
+        state["reply_text"] = f"Cannot process request: {reason}\n\nPlease provide a QODE questionnaire or ask about existing documented practices."
+        state["thinking_text"] = ""
+        state["reply_stream"] = None
+        state["error"] = reason
+        return state
+    else:
+        logger.info("Query grounded — proceeding: %s", reason)
 
     # diagram_path / diagram_type already set by _node_load_asis — do not overwrite
     state["mode"] = "principles"
@@ -394,13 +522,58 @@ def _node_principles(state: AgentState) -> AgentState:
                 state["thinking_text"] = thinking
                 state["reply_stream"] = None
             span.set_output({"status": "ok"})
+        except RuntimeError as exc:
+            # Latency or critical errors — user should switch models
+            logger.error("LLM critical error: %s", exc)
+            error_msg = str(exc)
+            if "latency" in error_msg.lower():
+                state["reply_text"] = (
+                    f"API Latency ⏱️  Critical: {exc}\n\n"
+                    "The LLM provider is responding too slowly. "
+                    "Use the model selector to switch to a faster provider."
+                )
+            else:
+                state["reply_text"] = f"Critical error: {exc}"
+            state["thinking_text"] = ""
+            state["reply_stream"] = None
+            state["error"] = error_msg
+            span.set_output({"status": "error", "error": error_msg})
         except Exception as exc:
             logger.error("LLM call failed: %s", exc)
-            state["reply_text"] = f"❌ LLM error: {exc}"
+            state["reply_text"] = f"LLM error: {exc}"
             state["thinking_text"] = ""
             state["reply_stream"] = None
             state["error"] = str(exc)
             span.set_output({"status": "error", "error": str(exc)})
+
+    # ── Post-LLM policy validation ────────────────────────────────────
+    if not state.get("stream") and state.get("reply_text"):
+        try:
+            # Hallucination check: reject if LLM mentions unsupported formats
+            reply_lower = state.get("reply_text", "").lower()
+            banned_formats = ["draw.io", "plantuml", "plant uml", "puml"]
+            for fmt in banned_formats:
+                if fmt in reply_lower:
+                    logger.error("LLM hallucination detected: mentions '%s' (unsupported format)", fmt)
+                    state["reply_text"] = (
+                        f"❌ Response validation failed: LLM mentioned unsupported format '{fmt}'.\n\n"
+                        "Only DOT and Mermaid diagrams are generated. "
+                        "Please try again with a refined query."
+                    )
+                    state["error"] = f"Hallucination: LLM mentioned {fmt}"
+                    return state
+
+            is_grounded = bool(state.get("context_chunks")) or bool(state.get("asis_diagram_data"))
+            is_valid = validate_conversation({
+                "is_grounded": is_grounded,
+                "is_respectful": True,
+            })
+            if is_valid:
+                logger.info("Conversation quality policy passed")
+            else:
+                logger.warning("Conversation quality policy check failed (non-blocking)")
+        except Exception as e:
+            logger.warning("Policy validation issue (non-blocking): %s", e)
 
     # ── Extract and persist DOT + Mermaid + PlantUML from LLM reply ──────
     # Runs for ALL diagram requests: As-Is AND To-Be.
@@ -426,6 +599,14 @@ def _node_principles(state: AgentState) -> AgentState:
 
         dot_ref   = get_dot_path(intent_key) if intent_key != "general" else None
 
+        # ── Validate diagram structure (optional JSON) ─────────────────────
+        diagram_struct = _try_extract_diagram_json(
+            reply_text, intent_key, is_tobe=not is_asis_req and not is_gap
+        )
+        if diagram_struct:
+            logger.info("%s diagram structure validated: %d nodes, %d edges",
+                        dir_label, len(diagram_struct.nodes), len(diagram_struct.edges))
+
         # ── Mermaid → <dir>/Mermaid/ ────────────────────────────────────
         mermaid_src = _extract_mermaid(reply_text)
         if mermaid_src:
@@ -450,6 +631,11 @@ def _node_principles(state: AgentState) -> AgentState:
         # ── DOT → <dir>/DotGraph/ ────────────────────────────────────────
         dot_src = _extract_dot(reply_text)
         if dot_src:
+            # Preserve To-Be diagram data for multi-turn follow-ups
+            if not is_asis_req and not is_gap:
+                state["tobe_diagram_data"] = dot_src
+                logger.info("To-Be diagram data persisted for session (%d chars)", len(dot_src))
+
             dot_out = out_dirs["dot"] / f"{base_name}.dot"
             try:
                 dot_out.write_text(dot_src, encoding="utf-8")
@@ -495,15 +681,47 @@ def _node_principles(state: AgentState) -> AgentState:
     try:
         from .eval_metrics import score_response
         if not state.get("stream") and state.get("reply_text"):
-            context_text = "\n".join(c["text"] for c in chunks)
+            context_text = "\n".join(c.get("text", "") for c in chunks if c.get("text"))
             state["eval_score"] = score_response(
                 query=state["user_message"],
                 answer=state["reply_text"],
                 context=context_text,
             )
             tracer.log_score("faithfulness", state["eval_score"])
-    except Exception:
+
+            # Quality threshold: flag low-confidence responses for review
+            if state["eval_score"] and state["eval_score"] < 0.6:
+                logger.warning(
+                    "Low eval score (%.2f) — response may need review",
+                    state["eval_score"],
+                )
+                state["reply_text"] += (
+                    "\n\n⚠️ **Low confidence**: This response scored below quality threshold. "
+                    "Please review and validate against source documents."
+                )
+    except Exception as e:
+        logger.warning("Eval scoring failed (non-blocking): %s", e)
         state["eval_score"] = None
+
+    # ── Image generation for gap analysis and narrative reports ──────────────
+    is_gap = state.get("is_gap_analysis", False)
+    is_narrative = detect_narrative_request(state.get("user_message", ""))
+
+    if (is_gap or is_narrative) and state.get("reply_text"):
+        report_type = "gap_analysis" if is_gap else "assessment"
+        try:
+            images = generate_report_images(
+                narrative_text=state["reply_text"],
+                intent=intent,
+                report_type=report_type,
+                max_images=3,
+            )
+            if images:
+                state["report_images"] = images
+                logger.info("Generated %d images for %s report", len(images), report_type)
+        except Exception as e:
+            logger.warning("Image generation failed (non-blocking): %s", e)
+            state["report_images"] = None
 
     return state
 
@@ -561,44 +779,50 @@ over pillars, roles, tools, and activities.
   from the client's QODE questionnaire.  You MUST treat it as the sole source of truth. \
   Never assume, invent, or infer any roles, tools, processes, or relationships \
   that are not explicitly present in that section.
+
+""" + ASIS_GROUNDEDNESS_RULES + """
 - **Toolchain Improvement (Technology Discipline)**: When the user asks to improve an existing \
   As-Is Technology diagram, you MUST:\
     1. **Stay within the verified As-Is toolchain** — Only recommend enhancements or replacements \
        for tools/platforms that are already present in the questionnaire.\
-    2. **NO internet-sourced or trendy tools** — Do NOT invent fancy toolchains from external \
-       sources. Recommendations must be grounded exclusively in the As-Is architecture and \
-       the QODE Knowledge Graph context.\
-    3. **AI/Agentic Enhancement Focus** — When recommending improvements, prioritize integrating \
-       AI capabilities and agentic workflows into the EXISTING toolchain. Examples:\
-       - Add LLM-based agents to automate existing workflows\
-       - Enhance CI/CD pipelines with AI-driven testing or anomaly detection agents\
-       - Integrate AI code generation or intelligent documentation into dev tools\
-       - Deploy autonomous agents for operational tasks (log analysis, incident response, etc.)\
-    4. **Justify each recommendation** — Explain how the AI/agentic enhancement fits into and \
-       strengthens the verified As-Is architecture.\
+    2. **OPEN-SOURCE ONLY** — Do NOT recommend proprietary, SaaS, or AI-based commercial tools. \
+       All recommendations MUST be open-source projects. Examples:\
+       - Jenkins, GitLab CI/CD, ArgoCD (not GitHub Actions or Spinnaker enterprise)\
+       - Prometheus, Grafana, ELK Stack (not Datadog, New Relic, or commercial APM)\
+       - HashiCorp (Terraform, Vault, Consul — all open-source)\
+       - Apache/CNCF projects (Kafka, Spark, Kubernetes, etc.)\
+       - Community-driven tools with active repositories\
+    3. **NO trendy or non-production-ready tools** — Avoid experimental projects, beta software, \
+       or cutting-edge unproven solutions. Prioritize battle-tested, widely-deployed open-source.\
+    4. **Justify each recommendation** — Explain:\
+       - Why the tool fits into the existing As-Is architecture\
+       - Integration points and data flows\
+       - Maintenance and community support status\
+       - Migration path from current state (if applicable)\
     5. **No standalone new tools** — Do NOT recommend entirely new tool categories. Focus on \
        capability enhancements to what already exists.
-- **To-Be recommendations with questionnaire data**: derive all recommendations \
-  exclusively from the verified As-Is data, the Knowledge Graph, and Semantic Context.
-- **To-Be recommendations without questionnaire data**: you MUST still produce a \
-  comprehensive, fully-specified To-Be architecture.  Use the QODE Knowledge Graph context, \
-  the 9 Engineering Principles × 3 Disciplines framework, and DevSecOps best practices to \
-  reason through a logical target-state architecture.  Clearly label it as \
-  "Best-Practice To-Be Architecture (QODE Framework)" so it is distinguished from \
-  client-specific output.  **Refusing to generate a diagram is not acceptable.**
+- **To-Be recommendations**: ALWAYS ground in the verified As-Is data and the QODE Knowledge \
+  Graph. Recommend ONLY open-source tools and platforms. Do NOT suggest proprietary, SaaS, \
+  cloud-managed, or experimental solutions. For every tool recommendation:\
+    • Verify it is open-source (check project repository, license)\
+    • Confirm active maintenance (recent commits, community support)\
+    • Justify integration with existing As-Is architecture\
+    • Provide setup/deployment guidance grounded in knowledge graph patterns
 - Never invent facts that contradict the verified As-Is data when it is present.
 
-## Diagram Output Format (MANDATORY — BOTH formats required for every diagram request)
-- Emit a **Graphviz DOT graph** inside a fenced block: \`\`\`dot digraph G { … } \`\`\`
-- Emit a **Mermaid flowchart** inside a fenced block: \`\`\`mermaid flowchart … \`\`\`
+## Diagram Output Format (MANDATORY — EXACT formats only)
+**CRITICAL: Output ONLY these two formats. Do NOT mention, reference, or output draw.io, PlantUML, or any other format.**
+- **Graphviz DOT** inside: \`\`\`dot digraph G { … } \`\`\`
+- **Mermaid flowchart** inside: \`\`\`mermaid flowchart … \`\`\`
 - **Both blocks are REQUIRED** — do NOT emit only one format. Output DOT first, then Mermaid.
-- Do NOT describe the diagram only in prose — render both formats.
+- **OPTIONAL — Structured JSON** (for improved validation): After the diagrams, optionally \
+  provide a JSON block with nodes and edges arrays.
+- Do NOT mention draw.io, PlantUML, or other formats — those are handled internally.
 - Include labelled nodes for every key role / tool / process in the architecture.
 - DOT direction: `rankdir=TD` for People/Process; `rankdir=LR` for Technology.
 - Mermaid direction: `flowchart TD` for People/Process; `flowchart LR` for Technology.
 - For a **People** diagram: actor nodes → responsibility / ownership arrows.
-- For a **Process** diagram: activity nodes → sequence / dependency arrows, \
-  annotate critical-path edges.
+- For a **Process** diagram: activity nodes → sequence / dependency arrows.
 - For a **Technology** diagram: tool/platform nodes → integration / data-flow arrows.
 
 ## To-Be Diagram Derivation (MANDATORY when As-Is data is present)
@@ -624,6 +848,10 @@ Your responsibilities:
 - Prefer the **Knowledge Graph Context** (graph traversal) over Semantic Context \
   for relationship/structural questions.
 - Ground every answer in the retrieved context. Be concise and actionable.
+
+## Conversation Quality Standards (MANDATORY)
+
+""" + CONVERSATION_QUALITY_RULES + """
 """
 
 
@@ -854,8 +1082,23 @@ def run_chain(
     chroma_path: str = "./chroma_db",
     graph_path: str = DEFAULT_GRAPH_PATH,
     stream: bool = False,
+    asis_diagram_data: str | None = None,
+    tobe_diagram_data: str | None = None,
 ) -> dict[str, Any]:
     """Run the LangGraph-based Graph-RAG chain for one user turn.
+
+    For multi-turn conversations, pass diagram data from the prior turn
+    so it's reused across the conversation without re-loading.
+
+    Args:
+        user_message: Current user query
+        history: Conversation history
+        excel_path: Path to QODE questionnaire Excel
+        chroma_path: Path to ChromaDB vector store
+        graph_path: Path to knowledge graph
+        stream: Whether to stream tokens
+        asis_diagram_data: Pre-loaded As-Is DOT graph from prior turn (optional)
+        tobe_diagram_data: Pre-loaded To-Be DOT graph from prior turn (optional)
 
     Returns a dict with keys:
       - ``text``         : full reply string (stream=False) or ""
@@ -864,6 +1107,8 @@ def run_chain(
       - ``diagram_type`` : "process" | "people" | "technology" | None
       - ``mode``         : "asis" | "principles"
       - ``eval_score``   : float 0-1 or None
+      - ``asis_diagram_data`` : As-Is DOT data (for passing to next turn)
+      - ``tobe_diagram_data`` : To-Be DOT data (for passing to next turn)
     """
     if history is None:
         history = []
@@ -875,6 +1120,8 @@ def run_chain(
         "chroma_path": chroma_path,
         "graph_path": graph_path,
         "stream": stream,
+        "asis_diagram_data": asis_diagram_data,  # Preserve from prior turn
+        "tobe_diagram_data": tobe_diagram_data,  # Preserve from prior turn
     }
 
     if _COMPILED_GRAPH is not None:
@@ -895,6 +1142,9 @@ def run_chain(
         "diagram_type": final_state.get("diagram_type"),
         "mode": final_state.get("mode", "principles"),
         "eval_score": final_state.get("eval_score"),
+        "asis_diagram_data": final_state.get("asis_diagram_data"),  # Pass to next turn
+        "tobe_diagram_data": final_state.get("tobe_diagram_data"),  # Pass to next turn
+        "report_images": final_state.get("report_images"),  # Generated images for docs
     }
 
 
