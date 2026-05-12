@@ -48,6 +48,7 @@ from pathlib import Path
 from typing import Any
 
 import networkx as nx
+from . import eval_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -69,113 +70,116 @@ _STOP_WORDS: frozenset[str] = frozenset(
 
 # ---------------------------------------------------------------------------
 # Authoritative QODE pillar definitions — single source of truth for the graph
+# Aligned with QODE_methodologies.md Section 3: Engineering Practices (9 practices)
+# and Section 4: Three Propensities (Practice, Technology Usage, Collaboration)
 # ---------------------------------------------------------------------------
 PILLAR_DEFINITIONS: list[dict[str, Any]] = [
     {
         "id": "pillar_1",
-        "label": "Requirements & Planning",
+        "label": "Requirements Engineering",
         "pillar_num": 1,
         "diagram_type": "process",
-        "roles": ["Product Owner", "Business Analyst"],
+        "roles": ["IT Product Owner", "Business Analyst", "IT Lead"],
         "tools": ["Jira", "Confluence", "Azure DevOps Boards"],
         "summary": (
-            "Covers user story creation, backlog grooming, sprint planning, "
-            "and requirement traceability."
+            "Capturing, translating, categorizing, and integrating requirements; "
+            "traceability automation."
         ),
     },
     {
         "id": "pillar_2",
-        "label": "Design & Architecture",
+        "label": "Code Engineering",
         "pillar_num": 2,
-        "diagram_type": "people",
-        "roles": ["Architect", "Tech Lead"],
-        "tools": ["draw.io", "Lucidchart", "Enterprise Architect"],
+        "diagram_type": "technology",
+        "roles": ["Developer", "Tech Lead"],
+        "tools": ["GitHub", "GitLab", "Bitbucket", "SonarQube"],
         "summary": (
-            "Covers solution design, architecture review, threat modelling, "
-            "and design approval gates."
+            "Modularity, microservices architecture, in-line code quality, "
+            "model-driven code generation, application security."
         ),
     },
     {
         "id": "pillar_3",
-        "label": "Development & Code Quality",
+        "label": "Data Engineering",
         "pillar_num": 3,
         "diagram_type": "technology",
-        "roles": ["Developer", "QA"],
-        "tools": ["SonarQube", "GitHub", "GitLab", "Bitbucket"],
+        "roles": ["Data Architect", "Data Modeler"],
+        "tools": ["DBaaS", "ETL Tools", "Data Pipeline", "Apache Spark"],
         "summary": (
-            "Covers coding standards, peer review, static analysis, and unit testing."
+            "Schema optimization, unstructured data management, data migration, "
+            "data security, archival automation."
         ),
     },
     {
         "id": "pillar_4",
-        "label": "Continuous Integration",
+        "label": "Quality Engineering",
         "pillar_num": 4,
         "diagram_type": "technology",
-        "roles": ["DevOps Lead", "Developer"],
-        "tools": ["Jenkins", "GitHub Actions", "CircleCI", "Nexus", "JFrog"],
+        "roles": ["Tester", "QA Team", "QA Lead"],
+        "tools": ["Selenium", "JUnit", "pytest", "TestNG", "Cypress"],
         "summary": (
-            "Covers build automation, automated unit/integration tests, "
-            "and artefact management."
+            "TDD/BDD, in-sprint automation, regression and performance test automation, "
+            "shift-left testing."
         ),
     },
     {
         "id": "pillar_5",
-        "label": "Security & Compliance (DevSecOps)",
+        "label": "Build & Release Engineering",
         "pillar_num": 5,
         "diagram_type": "process",
-        "roles": ["Security Engineer", "Ops-Rel"],
-        "tools": ["Snyk", "Checkmarx", "OWASP ZAP", "Twistlock"],
+        "roles": ["Operations", "Release Team", "DevOps Lead"],
+        "tools": ["Jenkins", "GitHub Actions", "CircleCI", "Nexus", "JFrog"],
         "summary": (
-            "Covers SAST, DAST, SCA, secrets scanning, container scanning, "
-            "and compliance gates."
+            "CI/CD frameworks, toolchain integration, zero-downtime deployment, "
+            "release pipeline reliability."
         ),
     },
     {
         "id": "pillar_6",
-        "label": "Continuous Delivery & Deployment",
+        "label": "Environment Engineering",
         "pillar_num": 6,
-        "diagram_type": "process",
-        "roles": ["DevOps Lead", "Release Manager"],
-        "tools": ["ArgoCD", "Spinnaker", "Harness", "Helm"],
+        "diagram_type": "technology",
+        "roles": ["Operations", "Infrastructure Team", "Cloud Engineer"],
+        "tools": ["Terraform", "Ansible", "Puppet", "CloudFormation", "Helm"],
         "summary": (
-            "Covers release pipeline, environment promotion, blue-green/canary "
-            "deployments, and rollback mechanisms."
+            "Infrastructure-as-code, environment provisioning automation, "
+            "configuration management, containerization, cloud."
         ),
     },
     {
         "id": "pillar_7",
-        "label": "Infrastructure & Configuration Management",
+        "label": "Service Operations Engineering",
         "pillar_num": 7,
-        "diagram_type": "technology",
-        "roles": ["Ops-Infra", "Cloud Engineer"],
-        "tools": ["Terraform", "Ansible", "Puppet", "HashiCorp Vault"],
+        "diagram_type": "process",
+        "roles": ["Operations", "Production Support", "Support Lead"],
+        "tools": ["ServiceNow", "Jira", "Splunk", "ELK Stack"],
         "summary": (
-            "Covers IaC, environment provisioning, configuration drift detection, "
-            "and secrets management."
+            "Production monitoring, automated incident detection and resolution, "
+            "feedback loops to SDLC, ITSM workflows."
         ),
     },
     {
         "id": "pillar_8",
-        "label": "Monitoring & Observability",
+        "label": "Security Engineering",
         "pillar_num": 8,
         "diagram_type": "process",
-        "roles": ["Ops-Rel", "SRE"],
-        "tools": ["Prometheus", "Grafana", "ELK Stack", "Datadog", "Dynatrace"],
+        "roles": ["IT Security Team", "Security Engineer"],
+        "tools": ["Snyk", "Checkmarx", "OWASP ZAP", "Twistlock"],
         "summary": (
-            "Covers application performance monitoring, log aggregation, "
-            "distributed tracing, alerting, and SLO tracking."
+            "Application, data, infrastructure, and code security; "
+            "vulnerability scanning; chaos engineering for security; DevSecOps."
         ),
     },
     {
         "id": "pillar_9",
-        "label": "Feedback & Continuous Improvement",
+        "label": "Reliability Engineering",
         "pillar_num": 9,
         "diagram_type": "process",
-        "roles": ["DevOps Lead", "IT Lead", "Scrum Master"],
-        "tools": ["Jira", "PowerBI", "Tableau"],
+        "roles": ["Ops", "SRE"],
+        "tools": ["Prometheus", "Grafana", "Datadog", "Dynatrace"],
         "summary": (
-            "Covers retrospectives, lead-time/cycle-time metrics, DORA metrics "
-            "collection, and improvement backlog management."
+            "Monitoring-based failure detection, self-healing, chaos engineering, "
+            "SLO/SLA management."
         ),
     },
 ]
@@ -430,6 +434,69 @@ class QODEKnowledgeGraph:
     # ------------------------------------------------------------------
     # Community summaries
     # ------------------------------------------------------------------
+
+    def evaluate_propensities(self, pillar_id: str) -> eval_metrics.PropensityScore | None:
+        """Compute propensity scores for a given pillar based on roles and tools.
+
+        Analyzes tool propensity category and role seniority to derive Practice,
+        Technology Usage, and Collaboration scores for a pillar.
+
+        Args:
+            pillar_id: Node ID of the pillar (e.g. "pillar_3")
+
+        Returns:
+            PropensityScore with (practice, technology_usage, collaboration) levels,
+            or None if pillar not found.
+        """
+        if not self._g.has_node(pillar_id):
+            logger.warning("Pillar %s not found in graph", pillar_id)
+            return None
+
+        # Collect tool categories for this pillar
+        tool_nodes = [
+            n for n in self._g.successors(pillar_id)
+            if self._g.nodes[n].get("node_type") == "tool"
+        ]
+        tool_labels = [self._g.nodes[n].get("label", "") for n in tool_nodes]
+
+        # Infer technology propensity from tool categories
+        tech_propensity = self._infer_technology_propensity(tool_labels)
+
+        # Default practice propensity (baseline: medium)
+        practice_propensity = eval_metrics.PropensityLevel.MEDIUM
+
+        # Default collaboration propensity (baseline: medium)
+        collaboration_propensity = eval_metrics.PropensityLevel.MEDIUM
+
+        return eval_metrics.PropensityScore(
+            practice=practice_propensity,
+            technology_usage=tech_propensity,
+            collaboration=collaboration_propensity,
+        )
+
+    def _infer_technology_propensity(self, tool_labels: list[str]) -> eval_metrics.PropensityLevel:
+        """Infer technology usage propensity from tool categories.
+
+        Mapping:
+        - Documentation/UI-based (Jira, ServiceNow) → Low
+        - Configuration-centric (Jenkins, Ansible) → Medium
+        - Coding-centric (Jenkinsfile, Terraform) → High
+        """
+        coding_tools = {"terraform", "ansible", "jenkinsfile", "helm", "docker", "kubernetes"}
+        config_tools = {"jenkins", "github actions", "circleci", "jira", "servicenow"}
+        doc_tools = {"confluence", "word", "excel", "sharepoint"}
+
+        lower_labels = [l.lower() for l in tool_labels]
+        has_coding = any(any(ct in label for ct in coding_tools) for label in lower_labels)
+        has_config = any(any(ct in label for ct in config_tools) for label in lower_labels)
+        has_doc = any(any(dt in label for dt in doc_tools) for label in lower_labels)
+
+        if has_coding:
+            return eval_metrics.PropensityLevel.HIGH
+        elif has_config:
+            return eval_metrics.PropensityLevel.MEDIUM
+        else:
+            return eval_metrics.PropensityLevel.LOW
 
     def community_summaries(self) -> dict[str, str]:
         """Return a per-pillar prose summary including roles, tools, and position.
