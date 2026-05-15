@@ -1,10 +1,10 @@
 """
-app.py — Streamlit chat interface for the advanced-QODE GenAI Diagram Assistant.
+app.py — Streamlit chat interface for the Diagram Assistant.
 
 Architecture
 ------------
   📊 As-Is path       : RAG only, zero LLM — generates diagrams from the 3 core Python files.
-  🧠 Principles path  : LLM + Graph-RAG across 9 Engineering Principles × 3 Disciplines.
+  🧠 Principles path  : LLM + Graph-RAG across 8 Engineering Principles × 3 Disciplines.
 
 UI layer
 --------
@@ -75,7 +75,7 @@ from rag_pipeline.chat_history import (
 # ---------------------------------------------------------------------------
 _CHROMA_PATH = "./chroma_db"
 _GRAPH_PATH  = DEFAULT_GRAPH_PATH
-_SUPPORTED   = ["xlsm", "xlsx", "docx", "pdf", "txt"]
+_SUPPORTED   = ["xlsm", "xlsx", "docx", "txt"]
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -211,7 +211,7 @@ with st.sidebar:
     st.divider()
 
     # ── Active model ────────────────────────────────────────────────────────
-    render_sidebar_section("🤖 Active Model")
+    render_sidebar_section("Current Model")
     render_model_card(
         model_name=os.environ.get("HF_MODEL", "unknown"),
         base_url=os.environ.get("HF_BASE_URL", ""),
@@ -220,7 +220,7 @@ with st.sidebar:
     st.divider()
 
     # ── Token Count ───────────────────────────────────────────────────────
-    render_sidebar_section("🔢 Token Count")
+    render_sidebar_section("Token Counts")
     render_token_counter(
         prompt_tokens=st.session_state.token_prompt,
         completion_tokens=st.session_state.token_completion,
@@ -286,7 +286,7 @@ with st.sidebar:
 
     # ── Ingest ────────────────────────────────────────────────────────────
     if not st.session_state.ingested:
-        with st.spinner("🔄 Building knowledge base …"):
+        with st.spinner("🔄 Re-concilling Knowledge Base"):
             try:
                 n_docs = ingest_all(
                     excel_path=excel_path,
@@ -302,7 +302,7 @@ with st.sidebar:
     st.divider()
 
     # ── As-Is quick-action buttons ─────────────────────────────────────────
-    render_sidebar_section("⚡ As-Is Diagrams")
+    render_sidebar_section("⚡ One Touch As-Is Diagram ")
 
     def _qprompt(p: str) -> None:
         st.session_state._quick_input = p
@@ -310,16 +310,16 @@ with st.sidebar:
     c1, c2, c3 = st.columns(3)
     with c1:
         if st.button("📊\nProcess", use_container_width=True, key="asis_process"):
-            _qprompt("Create an As-Is Process Network Architecture diagram.")
+            _qprompt("Create an As-Is Process Network Architecture diagram codebase")
     with c2:
         if st.button("👥\nPeople", use_container_width=True, key="asis_people"):
-            _qprompt("Create an As-Is People Architecture diagram.")
+            _qprompt("Create an As-Is People Architecture diagram codebase.")
     with c3:
-        if st.button("🔧\nTech", use_container_width=True, key="asis_tech"):
-            _qprompt("Create an As-Is Technology Architecture diagram.")
+        if st.button("🔧\nTechnology", use_container_width=True, key="asis_tech"):
+            _qprompt("Create an As-Is Technology Architecture diagram codebase .")
 
     # ── To-Be quick-action buttons ─────────────────────────────────────────
-    render_sidebar_section("🔮 To-Be Diagrams")
+    render_sidebar_section("🔮 One Touch To-Be Diagram")
 
     t1, t2, t3 = st.columns(3)
     with t1:
