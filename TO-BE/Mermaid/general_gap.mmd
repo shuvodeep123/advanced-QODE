@@ -1,0 +1,24 @@
+flowchart TD
+  %% Best-Practice As-Is (Synthesized; no questionnaire)
+  PO[Product Owner] -->|drives backlog & SRS workflow| S22[S22: SRS → SRS (requirement/spec activity)]
+  BA[Business Analyst] -->|supports SRS/requirements| S22
+  ARC[Architect] -->|owns SRS activity scope| S22
+  TL[Tech Lead] -->|technical/architecture review| S22
+  DEV[Developer] -->|implements from SRS| S22
+  QA[QA] -->|verifies for testability| S22
+
+  PO --> ADO[Azure DevOps Boards]
+  PO --> Jira[Jira]
+  BA --> Confluence[Confluence]
+  ARC --> EA[Enterprise Architect]
+  ARC --> Draw[draw.io]
+  ARC --> Lucid[Lucidchart]
+  DEV --> GH[GitHub]
+  DEV --> GL[GitLab]
+  DEV --> BB[Bitbucket]
+  DEV --> Sonar[SonarQube]
+
+  classDef kept fill:#1e3a5f,stroke:#3b82f6,color:#e0e7ff
+  classDef improved fill:#1d4ed8,stroke:#60a5fa,color:#fff
+  classDef new fill:#065f46,stroke:#34d399,color:#fff
+  classDef replaced fill:#7f1d1d,stroke:#f87171,color:#fff

@@ -1,0 +1,51 @@
+digraph G {
+  rankdir=TD;
+  node [shape=box, style="rounded,filled", fontname="Arial"];
+
+  // PEOPLE
+  PO [label="Product Owner", fillcolor="#e5e7eb"];
+  BA [label="Business Analyst", fillcolor="#e5e7eb"];
+  ARC [label="Architect", fillcolor="#e5e7eb"];
+  TL [label="Tech Lead", fillcolor="#e5e7eb"];
+  DEV [label="Developer", fillcolor="#e5e7eb"];
+  QA [label="QA", fillcolor="#e5e7eb"];
+
+  // PROCESS / ACTIVITIES
+  REQ_S22 [label="S22: SRS → SRS (requirement/spec activity)", fillcolor="#e5e7eb"];
+
+  // TECHNOLOGY (separate direction requirement not enforced inside single DOT;
+  // we still include tool nodes to represent as-is capability)
+  subgraph cluster_tools {
+    label="Tools (As-Is)";
+    color="#9ca3af";
+    node [shape=ellipse, fontname="Arial"];
+
+    Jira [label="Jira"];
+    Confluence [label="Confluence"];
+    ADOBoards [label="Azure DevOps Boards"];
+    EA [label="Enterprise Architect"];
+    drawio [label="draw.io"];
+    Lucid [label="Lucidchart"];
+    Sonar [label="SonarQube"];
+    GitHub [label="GitHub"];
+    GitLab [label="GitLab"];
+    Bitbucket [label="Bitbucket"];
+  }
+
+  // People -> Responsibilities (as-is inferred from KG)
+  PO -> REQ_S22 [label="drives backlog & SRS workflow (via boards)"];
+  BA -> REQ_S22 [label="supports requirements documentation"];
+  ARC -> REQ_S22 [label="owns SRS activity scope"];
+  TL -> REQ_S22 [label="architecture/technical review input"];
+
+  DEV -> REQ_S22 [label="implements based on SRS"];
+  QA -> REQ_S22 [label="verifies requirements for testability"];
+
+  // Roles -> Tools (from KG)
+  PO -> ADOBoards [label="uses"];
+  PO -> Jira [label="uses"];
+  BA -> Confluence [label="uses"];
+  ARC -> {EA drawio Lucid} [label="design/arch tools"];
+  DEV -> {GitHub GitLab Bitbucket} [label="code hosting / collaboration"];
+  DEV -> Sonar [label="static analysis support"];
+}

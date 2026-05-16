@@ -1,0 +1,50 @@
+flowchart LR
+  subgraph Technology
+    style Confluence fill:#ADD8E6
+    style Jira fill:#ADD8E6
+    style Jbehave fill:#ADD8E6
+    style Puppet fill:#ADD8E6
+    style ServiceNow fill:#ADD8E6
+    style "Text editor (UNIX/LINUX)" fill:#ADD8E6
+    style Flyway fill:#ADD8E6
+    style SonarQube fill:#ADD8E6
+    style "GitHub / GitLab" fill:#ADD8E6
+    style Maven fill:#ADD8E6
+    style Selenium fill:#ADD8E6
+    style Jmeter fill:#ADD8E6
+    style "XL Deploy" fill:#ADD8E6
+    style OverOps fill:#ADD8E6
+
+    Confluence -->|A1  A1  A2  A2  A4.0  A21  A21  A22.0  A24  A34  A36.0| Confluence
+    Confluence -->|A24  A22  A2  A4.0| Jira
+    Jira -->|A29  A29.0  A329  A333  A335| Jira
+    Jira -->|A29  A29| Confluence
+    Confluence -->|A39  A39  A39| Jbehave
+    Jbehave -->|A40  A42.0  A40  A42.0| Jbehave
+    Confluence -->|A2  A4.0| Puppet
+    Puppet -->|A98  A98| Puppet
+    ServiceNow -->|A128  A128  A273.0| Puppet
+    Puppet -->|A115  A113  A136.0| ServiceNow
+    ServiceNow -->|A127  A127| ServiceNow
+    ServiceNow -->|A164| "Text editor (UNIX/LINUX)"
+    ServiceNow -->|A164| Flyway
+    "Text editor (UNIX/LINUX)" -->|A206| SonarQube
+    SonarQube -->|A226| "GitHub / GitLab"
+    Flyway -->|A212| Flyway
+    "GitHub / GitLab" -->|A229| Maven
+    "GitHub / GitLab" -->|A229| Selenium
+    Flyway -->|A232| Selenium
+    Jbehave -->|A46  A47| Selenium
+    Jbehave -->|A46  A47| Jmeter
+    Jira -->|A50.0  A50.0| Jmeter
+    Selenium -->|A279  A280| Selenium
+    Jmeter -->|A283  A284| Jmeter
+    Selenium -->|A305  A306.0| Jira
+    Jmeter -->|A309.0  A310.0| Jira
+    Jira -->|A330| "Text editor (UNIX/LINUX)"
+    "Text editor (UNIX/LINUX)" -->|A332| Jira
+    Jira -->|A334  A334  A334  A334| "XL Deploy"
+    "XL Deploy" -->|A347.0  A348.0  A352  A354  A363  A364| "XL Deploy"
+    OverOps -->|A377.0  A377.0| "XL Deploy"
+    "XL Deploy" -->|A352  A354.0| OverOps
+  end

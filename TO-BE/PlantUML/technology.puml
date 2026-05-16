@@ -1,0 +1,75 @@
+@startuml
+' Technology Architecture Diagram
+
+component "Maven" as Maven
+component "Auto-sync" as Confluence
+component "Smart tickets" as Jira
+component "Gen scenarios" as Jbehave
+component "Config drift" as Puppet
+component "Auto-remediate" as ServiceNow
+component "Pair program" as _UNIX_LINUX_
+component "Schema AI" as Flyway
+component "AI SAST" as SonarQube
+component "PR Review" as GitLab
+component "Self-heal" as Selenium
+component "Perf insights" as Jmeter
+component "Risk predict" as Deploy
+component "Root cause" as OverOps
+component "AI Doc Agent\n(Req Intelligence)" as AI_Doc_Agent
+component "AI Code Agent\n(GenAI Assist)" as AI_Code_Agent
+component "AI Test Agent\n(Self-Healing)" as AI_Test_Agent
+component "AI Security Agent\n(Vuln Prioritization)" as AI_Security_Agent
+component "AI Ops Agent\n(Auto-Remediation)" as AI_Ops_Agent
+component "AI Deploy Agent\n(Risk Prediction)" as AI_Deploy_Agent
+component "Text" as Text
+component "GitHub" as GitHub
+component "XL" as XL
+
+Confluence --> Confluence : A1  A1  A2  A2  A4.0  A21  A21  A22.0  A24  A34  A36.0
+Confluence --> Jira : A24  A22  A2  A4.0
+Jira --> Jira : A29  A29.0  A329  A333  A335
+Jira --> Confluence : A29  A29
+Confluence --> Jbehave : A39  A39  A39
+Jbehave --> Jbehave : A40  A42.0  A40  A42.0
+Confluence --> Puppet : A2  A4.0
+Puppet --> Puppet : A98  A98
+ServiceNow --> Puppet : A128  A128  A273.0
+Puppet --> ServiceNow : A115  A113  A136.0
+ServiceNow --> ServiceNow : A127  A127
+ServiceNow --> Text
+ServiceNow --> Flyway
+_UNIX_LINUX_ --> SonarQube
+SonarQube --> GitHub
+Flyway --> Flyway
+GitLab --> Maven
+GitLab --> Selenium
+Flyway --> Selenium
+Jbehave --> Selenium : A46  A47
+Jbehave --> Jmeter : A46  A47
+Jira --> Jmeter : A50.0  A50.0
+Selenium --> Selenium : A279  A280
+Jmeter --> Jmeter : A283  A284
+Selenium --> Jira : A305  A306.0
+Jmeter --> Jira : A309.0  A310.0
+Jira --> Text
+_UNIX_LINUX_ --> Jira
+Jira --> XL
+Deploy --> XL
+OverOps --> XL
+Deploy --> OverOps : A352  A354.0
+AI_Doc_Agent --> Confluence : Auto-sync
+AI_Doc_Agent --> Jira : Smart tickets
+AI_Code_Agent --> GitHub
+AI_Code_Agent --> Text
+AI_Security_Agent --> SonarQube : AI SAST
+AI_Security_Agent --> GitHub
+AI_Test_Agent --> Selenium : Self-heal
+AI_Test_Agent --> Jbehave : Gen scenarios
+AI_Test_Agent --> Jmeter : Perf insights
+AI_Deploy_Agent --> XL
+AI_Deploy_Agent --> Flyway : Schema AI
+AI_Ops_Agent --> OverOps : Root cause
+AI_Ops_Agent --> ServiceNow : Auto-remediate
+AI_Ops_Agent --> Puppet : Config drift
+
+@enduml

@@ -1,0 +1,100 @@
+@startuml
+' People Architecture Diagram
+
+left to right direction
+
+actor "Business" as Business
+actor "ITLead" as ITLead
+actor "Ops-Rel" as Ops_Rel
+actor "Architect" as Architect
+actor "QA)" as QA_
+actor "QA" as QA
+actor "lead" as lead
+actor "Ops-Infra" as Ops_Infra
+actor "Ops" as Ops
+actor "Dev" as Dev
+actor "Rel" as Rel
+actor "DevOps" as DevOps
+actor "Infra" as Infra
+
+Business --> ITLead
+Business --> ITLead
+ITLead --> Ops
+ITLead --> ITLead
+ITLead --> ITLead
+ITLead --> Architect
+ITLead --> ITLead
+Architect --> ITLead
+ITLead --> ITLead
+ITLead --> ITLead
+ITLead --> ITLead
+ITLead --> Dev
+ITLead --> Dev
+QA_ --> QA
+QA_ --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+Architect --> QA
+ITLead --> QA
+ITLead --> Ops
+ITLead --> Ops
+Rel --> DevOps
+Infra --> Ops
+Rel --> Ops
+Rel --> Dev
+QA_ --> Ops
+Infra --> Ops
+QA --> Ops
+Infra --> Dev
+Infra --> Dev
+QA_ --> Dev
+QA_ --> Dev
+QA_ --> Dev
+QA_ --> Dev
+QA_ --> Dev
+QA_ --> Dev
+QA_ --> Dev
+QA_ --> Dev
+QA_ --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> QA
+QA --> ITLead
+ITLead --> Dev
+QA_ --> Dev
+QA_ --> QA
+ITLead --> Ops
+ITLead --> Ops
+Rel --> Ops
+QA --> Ops
+QA --> Ops
+QA --> Ops
+Rel --> Ops
+QA --> Ops
+Rel --> Ops
+Rel --> Ops
+Rel --> Ops
+Rel --> Ops
+Rel --> Ops
+Rel --> Ops
+Rel --> Ops
+Rel --> Ops
+Rel --> Ops
+
+@enduml

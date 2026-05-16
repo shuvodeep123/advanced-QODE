@@ -1,0 +1,119 @@
+digraph G {
+rankdir=TD;
+
+Business [shape=box, style=filled, fillcolor="#60a5fa", label="Business\n(IMPROVED: clearer requirement ownership)"];
+ITLead [shape=box, style=filled, fillcolor="#60a5fa", label="ITLead\n(IMPROVED: strategic governance, less delivery bottleneck)"];
+"Ops-Rel" [shape=box, style=filled, fillcolor="#60a5fa", label="Ops-Rel\n(IMPROVED: reliability/release ownership)"];
+Architect [shape=box, style=filled, fillcolor="#60a5fa", label="Architect\n(IMPROVED: design/threat-model governance)"];
+"Dev (incl. QA)" [shape=box, style=filled, fillcolor="#60a5fa", label="Dev (incl. QA)\n(IMPROVED: shift-left quality ownership)"];
+QA [shape=box, style=filled, fillcolor="#60a5fa", label="QA\n(IMPROVED: quality enablement & test governance)"];
+"DevOps lead" [shape=box, style=filled, fillcolor="#60a5fa", label="DevOps lead\n(IMPROVED: CI/CD coordination across teams)"];
+"Ops-Infra" [shape=box, style=filled, fillcolor="#60a5fa", label="Ops-Infra\n(IMPROVED: environment/platform ownership)"];
+
+Business -> ITLead [label="business priorities / portfolio alignment", color="#000000", penwidth=1.0];
+Business -> ITLead [label="requirement escalation / approval", color="#FFA500", penwidth=1.0];
+
+ITLead -> "Ops-Rel" [label="service reliability priorities", color="#FFA500", penwidth=1.0];
+ITLead -> ITLead [label="governance decisions", color="#FFA500", penwidth=1.0];
+ITLead -> ITLead [label="delivery oversight", color="#FFA500", penwidth=1.0];
+ITLead -> Architect [label="architecture direction", color="#FFA500", penwidth=1.0];
+ITLead -> ITLead [label="portfolio prioritisation", color="#FFA500", penwidth=1.0];
+Architect -> ITLead [label="architecture recommendations", color="#FFA500", penwidth=1.0];
+ITLead -> ITLead [label="risk acceptance", color="#FFA500", penwidth=1.0];
+ITLead -> ITLead [label="delivery governance", color="#FFA500", penwidth=1.0];
+ITLead -> ITLead [label="cross-team alignment", color="#FFA500", penwidth=1.0];
+
+ITLead -> "Dev (incl. QA)" [label="delivery objectives", color="#000000", penwidth=1.0];
+ITLead -> "Dev (incl. QA)" [label="prioritised execution guidance", color="#FFA500", penwidth=1.0];
+
+"Dev (incl. QA)" -> QA [label="test evidence / quality feedback", color="#FFA500", penwidth=1.0];
+"Dev (incl. QA)" -> QA [label="defect triage collaboration", color="#FFA500", penwidth=1.0];
+
+QA -> QA [label="test planning", color="#000000", penwidth=0.8];
+QA -> QA [label="test execution", color="#000000", penwidth=0.8];
+QA -> QA [label="defect validation", color="#000000", penwidth=0.8];
+QA -> QA [label="regression assurance", color="#000000", penwidth=0.8];
+QA -> QA [label="quality metrics review", color="#000000", penwidth=0.8];
+QA -> QA [label="release test sign-off", color="#000000", penwidth=0.8];
+
+Architect -> QA [label="testability / NFR validation guidance", color="#000000", penwidth=1.0];
+ITLead -> QA [label="quality gate expectations", color="#000000", penwidth=1.0];
+
+ITLead -> "Ops-Rel" [label="release governance", color="#FFA500", penwidth=1.0];
+ITLead -> "Ops-Rel" [label="operational readiness expectations", color="#FFA500", penwidth=1.0];
+"Ops-Rel" -> "DevOps lead" [label="release automation accountability", color="#FFA500", penwidth=1.0];
+
+"Ops-Infra" -> "Ops-Infra" [label="environment provisioning ownership", color="#FFA500", penwidth=0.8];
+"Ops-Rel" -> "Ops-Rel" [label="release readiness ownership", color="#FFA500", penwidth=0.8];
+
+"Ops-Rel" -> "Dev (incl. QA)" [label="production feedback to delivery", color="#000000", penwidth=1.0];
+"Dev (incl. QA)" -> "Ops-Infra" [label="environment needs / deployment dependencies", color="#FFA500", penwidth=1.0];
+"Ops-Infra" -> "Ops-Infra" [label="infra support / environment maintenance", color="#000000", penwidth=0.8];
+QA -> "Ops-Infra" [label="test environment readiness", color="#000000", penwidth=1.0];
+"Ops-Infra" -> "Dev (incl. QA)" [label="environment support", color="#000000", penwidth=1.0];
+"Ops-Infra" -> "Dev (incl. QA)" [label="deployment environment support", color="#000000", penwidth=1.0];
+
+"Dev (incl. QA)" -> "Dev (incl. QA)" [label="coding standards", color="#000000", penwidth=0.8];
+"Dev (incl. QA)" -> "Dev (incl. QA)" [label="peer review", color="#000000", penwidth=0.8];
+"Dev (incl. QA)" -> "Dev (incl. QA)" [label="unit testing", color="#000000", penwidth=0.8];
+"Dev (incl. QA)" -> "Dev (incl. QA)" [label="shift-left quality checks", color="#FFA500", penwidth=0.8];
+"Dev (incl. QA)" -> "Dev (incl. QA)" [label="developer-led test automation", color="#FFA500", penwidth=0.8];
+"Dev (incl. QA)" -> "Dev (incl. QA)" [label="secure coding responsibility", color="#000000", penwidth=0.8];
+"Dev (incl. QA)" -> "Dev (incl. QA)" [label="technical debt management", color="#000000", penwidth=0.8];
+"Dev (incl. QA)" -> "Dev (incl. QA)" [label="build issue resolution", color="#000000", penwidth=0.8];
+
+"Dev (incl. QA)" -> QA [label="formal QA handoff / validation", color="#000000", penwidth=1.0];
+
+QA -> QA [label="functional testing", color="#000000", penwidth=0.8];
+QA -> QA [label="non-functional validation", color="#000000", penwidth=0.8];
+QA -> QA [label="acceptance test support", color="#000000", penwidth=0.8];
+QA -> QA [label="automation framework governance", color="#FFA500", penwidth=0.8];
+QA -> QA [label="quality coaching", color="#FFA500", penwidth=0.8];
+QA -> QA [label="risk-based test strategy", color="#FFA500", penwidth=0.8];
+QA -> QA [label="defect trend analysis", color="#FFA500", penwidth=0.8];
+QA -> QA [label="release quality reporting", color="#000000", penwidth=0.8];
+QA -> QA [label="test data coordination", color="#000000", penwidth=0.8];
+QA -> QA [label="test evidence management", color="#000000", penwidth=0.8];
+QA -> QA [label="regression governance", color="#000000", penwidth=0.8];
+QA -> QA [label="quality risk acceptance input", color="#000000", penwidth=0.8];
+QA -> QA [label="exploratory testing", color="#000000", penwidth=0.8];
+QA -> QA [label="UAT support", color="#000000", penwidth=0.8];
+QA -> QA [label="defect lifecycle governance", color="#000000", penwidth=0.8];
+
+QA -> ITLead [label="quality risk escalation", color="#FFA500", penwidth=1.0];
+
+ITLead -> "Dev (incl. QA)" [label="delivery risk guidance", color="#000000", penwidth=1.0];
+"Dev (incl. QA)" -> "Dev (incl. QA)" [label="continuous improvement actions", color="#FFA500", penwidth=0.8];
+"Dev (incl. QA)" -> QA [label="shared quality accountability", color="#000000", penwidth=1.0];
+
+ITLead -> "Ops-Rel" [label="operational risk governance", color="#FFA500", penwidth=1.0];
+ITLead -> "Ops-Rel" [label="service transition governance", color="#FFA500", penwidth=1.0];
+
+"Ops-Rel" -> "Ops-Rel" [label="incident/release learning loop", color="#FFA500", penwidth=0.8];
+QA -> "Ops-Rel" [label="release readiness input", color="#FFA500", penwidth=1.0];
+QA -> "Ops-Rel" [label="quality signal to release", color="#000000", penwidth=1.0];
+QA -> "Ops-Rel" [label="defect risk to operations", color="#000000", penwidth=1.0];
+"Ops-Rel" -> "Ops-Rel" [label="release coordination", color="#000000", penwidth=0.8];
+QA -> "Ops-Rel" [label="production defect validation support", color="#000000", penwidth=1.0];
+
+"Ops-Rel" -> "Ops-Rel" [label="reliability review", color="#000000", penwidth=0.8];
+"Ops-Rel" -> "Ops-Rel" [label="deployment readiness", color="#FFA500", penwidth=0.8];
+"Ops-Rel" -> "Ops-Rel" [label="rollback planning", color="#FFA500", penwidth=0.8];
+"Ops-Rel" -> "Ops-Rel" [label="incident coordination", color="#000000", penwidth=0.8];
+"Ops-Rel" -> "Ops-Rel" [label="post-release review", color="#000000", penwidth=0.8];
+"Ops-Rel" -> "Ops-Rel" [label="SLA/SLO tracking", color="#000000", penwidth=0.8];
+"Ops-Rel" -> "Ops-Rel" [label="operational knowledge capture", color="#000000", penwidth=0.8];
+"Ops-Rel" -> "Ops-Rel" [label="continuous reliability improvement", color="#FFA500", penwidth=0.8];
+"Ops-Rel" -> "Ops-Rel" [label="release process improvement", color="#FFA500", penwidth=0.8];
+
+/* Recommended role-collaboration improvements using existing roles only */
+"DevOps lead" -> "Dev (incl. QA)" [style=filled, color="#60a5fa", penwidth=2.0, label="IMPROVED: CI/CD enablement for delivery"];
+"DevOps lead" -> QA [style=filled, color="#60a5fa", penwidth=2.0, label="IMPROVED: automated quality gates coordination"];
+"DevOps lead" -> "Ops-Infra" [style=filled, color="#60a5fa", penwidth=2.0, label="IMPROVED: deployment/environment automation alignment"];
+"DevOps lead" -> "Ops-Rel" [style=filled, color="#60a5fa", penwidth=2.0, label="IMPROVED: release orchestration feedback loop"];
+Architect -> "Dev (incl. QA)" [style=filled, color="#60a5fa", penwidth=2.0, label="IMPROVED: architecture guidance to implementation"];
+Architect -> "Ops-Rel" [style=filled, color="#60a5fa", penwidth=2.0, label="IMPROVED: reliability/design governance"];
+QA -> "Dev (incl. QA)" [style=filled, color="#60a5fa", penwidth=2.0, label="IMPROVED: early quality coaching"];
+"Ops-Rel" -> QA [style=filled, color="#60a5fa", penwidth=2.0, label="IMPROVED: production quality feedback"];
+"Ops-Infra" -> "DevOps lead" [style=filled, color="#60a5fa", penwidth=2.0, label="IMPROVED: platform constraints into pipeline governance"];
+}

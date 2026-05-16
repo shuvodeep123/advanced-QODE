@@ -1,0 +1,484 @@
+/* ============================================================
+   advanced-QODE — Global Stylesheet
+   Figma frame: "advanced-QODE · GenAI Assistant"
+   Version 1.0 · 2026-04-25
+   ============================================================ */
+
+/* ── Google Fonts ────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ── CSS Custom Properties (Figma tokens) ───────────────────── */
+:root {
+  --bg-base:        #0d1117;
+  --bg-surface:     #161b22;
+  --bg-elevated:    #1c2330;
+  --bg-input:       #0d1117;
+
+  --brand-blue:     #3b82f6;
+  --brand-blue-dim: #1d4ed8;
+  --brand-glow:     rgba(59,130,246,0.15);
+
+  --accent-amber:   #f59e0b;
+  --accent-emerald: #10b981;
+  --accent-rose:    #f43f5e;
+  --accent-violet:  #8b5cf6;
+
+  --text-primary:   #f0f6fc;
+  --text-secondary: #8b949e;
+  --text-muted:     #484f58;
+
+  --border-default: #30363d;
+  --border-focus:   #3b82f6;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  --shadow-card:   0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-raised: 0 4px 12px rgba(0,0,0,0.5);
+  --shadow-glow:   0 0 20px rgba(59,130,246,0.25);
+
+  --font-sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+/* ── Base resets ─────────────────────────────────────────────── */
+html, body, [data-testid="stAppViewContainer"] {
+  background-color: var(--bg-base) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-sans) !important;
+}
+
+/* ── Hide Streamlit chrome ───────────────────────────────────── */
+#MainMenu, footer, header { visibility: hidden; }
+[data-testid="stToolbar"] { display: none; }
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+[data-testid="stSidebar"] {
+  background-color: var(--bg-surface) !important;
+  border-right: 1px solid var(--border-default) !important;
+}
+
+[data-testid="stSidebar"] .stMarkdown h1,
+[data-testid="stSidebar"] .stMarkdown h2,
+[data-testid="stSidebar"] .stMarkdown h3 {
+  color: var(--text-primary) !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 1rem;
+}
+
+/* Sidebar divider */
+[data-testid="stSidebar"] hr {
+  border-color: var(--border-default) !important;
+  margin: 12px 0 !important;
+}
+
+/* ── Sidebar file uploader ───────────────────────────────────── */
+[data-testid="stFileUploader"] {
+  background: var(--bg-elevated) !important;
+  border: 1px dashed var(--border-default) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 12px !important;
+  transition: border-color 0.2s;
+}
+[data-testid="stFileUploader"]:hover {
+  border-color: var(--brand-blue) !important;
+  background: var(--bg-elevated) !important;
+}
+
+/* ── Sidebar selectbox / radio ───────────────────────────────── */
+[data-testid="stSidebar"] .stSelectbox > div > div {
+  background-color: var(--bg-elevated) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text-primary) !important;
+}
+[data-testid="stSidebar"] .stRadio label {
+  color: var(--text-secondary) !important;
+  font-size: 0.875rem !important;
+}
+
+/* ── Quick-action buttons ────────────────────────────────────── */
+[data-testid="stSidebar"] .stButton > button {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-default) !important;
+  color: var(--text-primary) !important;
+  border-radius: var(--radius-sm) !important;
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+  transition: all 0.2s !important;
+  padding: 6px 8px !important;
+}
+[data-testid="stSidebar"] .stButton > button:hover {
+  border-color: var(--brand-blue) !important;
+  background: var(--brand-glow) !important;
+  color: var(--brand-blue) !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-raised);
+}
+
+/* ============================================================
+   MAIN HEADER BANNER
+   ============================================================ */
+.qode-header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 24px 32px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.qode-header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--brand-blue), var(--accent-violet), var(--accent-emerald));
+}
+.qode-header h1 {
+  font-size: 1.75rem !important;
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+  margin: 0 0 4px 0 !important;
+  letter-spacing: -0.02em;
+}
+.qode-header .subtitle {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.qode-header .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(59,130,246,0.1);
+  border: 1px solid rgba(59,130,246,0.3);
+  border-radius: var(--radius-full);
+  padding: 2px 10px;
+  font-size: 0.75rem;
+  color: var(--brand-blue);
+  font-weight: 500;
+}
+
+/* ============================================================
+   CHAT INTERFACE
+   ============================================================ */
+
+/* Chat container */
+[data-testid="stChatMessage"] {
+  background: transparent !important;
+  border: none !important;
+  padding: 4px 0 !important;
+}
+
+/* ── User bubble ─────────────────────────────────────────────── */
+.chat-bubble-user {
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg);
+  padding: 12px 16px;
+  margin: 4px 0 4px 15%;
+  color: #fff;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(59,130,246,0.4);
+}
+
+/* ── Assistant bubble ────────────────────────────────────────── */
+.chat-bubble-assistant {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-lg);
+  padding: 14px 18px;
+  margin: 4px 15% 4px 0;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border-default);
+}
+
+/* ── As-Is bubble ────────────────────────────────────────────── */
+.chat-bubble-asis {
+  background: rgba(69,26,3,0.6);
+  border-left: 3px solid var(--accent-amber);
+  border-radius: 0 var(--radius-md) var(--radius-md) var(--radius-md);
+  padding: 14px 18px;
+  margin: 4px 15% 4px 0;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+}
+
+/* ── Principles bubble ───────────────────────────────────────── */
+.chat-bubble-llm {
+  background: rgba(5,46,22,0.6);
+  border-left: 3px solid var(--accent-emerald);
+  border-radius: 0 var(--radius-md) var(--radius-md) var(--radius-md);
+  padding: 14px 18px;
+  margin: 4px 15% 4px 0;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+}
+
+/* ── Chat input bar ──────────────────────────────────────────── */
+[data-testid="stChatInput"] {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--radius-lg) !important;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+[data-testid="stChatInput"]:focus-within {
+  border-color: var(--brand-blue) !important;
+  box-shadow: 0 0 0 3px var(--brand-glow) !important;
+}
+[data-testid="stChatInput"] textarea {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 0.9375rem !important;
+}
+[data-testid="stChatInput"] textarea::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* ============================================================
+   MODE BADGE
+   ============================================================ */
+.mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-full);
+  padding: 3px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin-top: 8px;
+}
+.mode-badge-asis {
+  background: rgba(245,158,11,0.12);
+  border: 1px solid rgba(245,158,11,0.35);
+  color: var(--accent-amber);
+}
+.mode-badge-principles {
+  background: rgba(16,185,129,0.12);
+  border: 1px solid rgba(16,185,129,0.35);
+  color: var(--accent-emerald);
+}
+.mode-badge-error {
+  background: rgba(244,63,94,0.12);
+  border: 1px solid rgba(244,63,94,0.35);
+  color: var(--accent-rose);
+}
+
+/* ── Eval score bar ──────────────────────────────────────────── */
+.eval-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.eval-bar-track {
+  flex: 1;
+  height: 4px;
+  background: var(--border-default);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  max-width: 160px;
+}
+.eval-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--accent-rose), var(--accent-amber), var(--accent-emerald));
+  transition: width 0.4s ease;
+}
+
+/* ============================================================
+   DIAGRAM CARD
+   ============================================================ */
+.diagram-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-top: 16px;
+  box-shadow: var(--shadow-raised);
+}
+.diagram-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.diagram-card-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.diagram-card img {
+  border-radius: var(--radius-md);
+  width: 100%;
+}
+
+/* ============================================================
+   METRIC / INFO CARDS (Sidebar stats)
+   ============================================================ */
+.info-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.info-card-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.info-card-value {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* ============================================================
+   WELCOME CARD
+   ============================================================ */
+.welcome-card {
+  background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(139,92,246,0.08));
+  border: 1px solid rgba(59,130,246,0.2);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.welcome-card h3 {
+  color: var(--brand-blue) !important;
+  font-size: 1rem !important;
+  margin: 0 0 8px 0 !important;
+}
+.welcome-card p, .welcome-card li {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+.welcome-mode-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+.welcome-mode-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+.welcome-mode-box .icon { font-size: 1.5rem; margin-bottom: 4px; }
+.welcome-mode-box .title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.welcome-mode-box .desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ============================================================
+   STATUS SPINNER (overrides Streamlit default)
+   ============================================================ */
+[data-testid="stStatusWidget"] {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--text-primary) !important;
+}
+
+/* ============================================================
+   EXPANDER (used for DOT source fallback)
+   ============================================================ */
+[data-testid="stExpander"] {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--radius-md) !important;
+}
+[data-testid="stExpander"] summary {
+  color: var(--text-secondary) !important;
+  font-size: 0.875rem !important;
+}
+
+/* ============================================================
+   CODE BLOCKS
+   ============================================================ */
+code, pre {
+  font-family: var(--font-mono) !important;
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--radius-sm) !important;
+  color: #79c0ff !important;
+}
+
+/* ============================================================
+   DOWNLOAD BUTTON
+   ============================================================ */
+[data-testid="stDownloadButton"] > button {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-default) !important;
+  color: var(--text-secondary) !important;
+  border-radius: var(--radius-sm) !important;
+  font-size: 0.8125rem !important;
+  transition: all 0.2s !important;
+}
+[data-testid="stDownloadButton"] > button:hover {
+  border-color: var(--brand-blue) !important;
+  color: var(--brand-blue) !important;
+  background: var(--brand-glow) !important;
+}
+
+/* ============================================================
+   SUCCESS / ERROR / INFO alerts
+   ============================================================ */
+[data-testid="stAlert"] {
+  border-radius: var(--radius-md) !important;
+  font-size: 0.875rem !important;
+}
+
+/* ============================================================
+   RESPONSIVE  (narrow viewport)
+   ============================================================ */
+@media (max-width: 768px) {
+  .chat-bubble-user, .chat-bubble-assistant,
+  .chat-bubble-asis, .chat-bubble-llm {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+  .welcome-mode-row { grid-template-columns: 1fr; }
+  .qode-header h1 { font-size: 1.25rem !important; }
+}

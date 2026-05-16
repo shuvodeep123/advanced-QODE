@@ -24,6 +24,7 @@ import chromadb
 from chromadb.utils import embedding_functions
 
 from .ingest import COLLECTION_NAME, _EMBED_MODEL
+from .embedding_cache import get_cached_embeddings, get_embedding_cache_info
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +36,27 @@ DIAGRAM_TYPES = {"process", "people", "technology", "general"}
 
 def _get_collection(chroma_path: str) -> chromadb.Collection:
     client = chromadb.PersistentClient(path=chroma_path)
-    ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+
+    # Create a cached embedding function wrapper
+    base_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
         model_name=_EMBED_MODEL
     )
+
+    # Wrap the embedding function with caching
+    class CachedEmbeddingFunction:
+        def __init__(self):
+            self.name = "cached-sentence-transformer"
+
+        def __call__(self, texts):
+            # Use the cached embeddings function
+            return get_cached_embeddings(
+                texts=texts,
+                model=_EMBED_MODEL,
+                embedding_fn=base_ef,
+            )
+
+    ef = CachedEmbeddingFunction()
+
     return client.get_or_create_collection(
         name=COLLECTION_NAME,
         embedding_function=ef,
@@ -65,8 +84,20 @@ def retrieve(
     Returns:
         A list of dicts ``{"text": ..., "metadata": ..., "distance": ...}``,
         ordered from most to least similar.
+
+    Note: Embeddings are cached in-memory (LRU, 1000 max). Cache hits reduce
+    latency significantly on repeated queries.
     """
     collection = _get_collection(chroma_path)
+
+    # Log cache stats periodically
+    cache_info = get_embedding_cache_info()
+    if cache_info["currsize"] > 0:
+        logger.debug(
+            "Embedding cache: %d entries, %.1f%% hit rate",
+            cache_info["currsize"],
+            cache_info["hit_rate"] * 100,
+        )
 
     where: dict | None = None
     if diagram_type and diagram_type in DIAGRAM_TYPES:

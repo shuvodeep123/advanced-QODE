@@ -1,0 +1,55 @@
+@startuml
+' Technology Architecture Diagram
+
+component "A29  A29" as Confluence
+component "Jira" as Jira
+component "A40  A42.0  A40  A42.0" as Jbehave
+component "A128  A128  A273.0" as Puppet
+component "A127  A127" as ServiceNow
+component "(UNIX/LINUX)" as _UNIX_LINUX_
+component "Flyway" as Flyway
+component "SonarQube" as SonarQube
+component "GitLab" as GitLab
+component "Maven" as Maven
+component "A279  A280" as Selenium
+component "A283  A284" as Jmeter
+component "A377.0  A377.0" as Deploy
+component "A352  A354.0" as OverOps
+component "Text" as Text
+component "GitHub" as GitHub
+component "XL" as XL
+
+Confluence --> Confluence : A1  A1  A2  A2  A4.0  A21  A21  A22.0  A24  A34  A36.0
+Confluence --> Jira : A24  A22  A2  A4.0
+Jira --> Jira : A29  A29.0  A329  A333  A335
+Jira --> Confluence : A29  A29
+Confluence --> Jbehave : A39  A39  A39
+Jbehave --> Jbehave : A40  A42.0  A40  A42.0
+Confluence --> Puppet : A2  A4.0
+Puppet --> Puppet : A98  A98
+ServiceNow --> Puppet : A128  A128  A273.0
+Puppet --> ServiceNow : A115  A113  A136.0
+ServiceNow --> ServiceNow : A127  A127
+ServiceNow --> Text
+ServiceNow --> Flyway
+_UNIX_LINUX_ --> SonarQube
+SonarQube --> GitHub
+Flyway --> Flyway
+GitLab --> Maven
+GitLab --> Selenium
+Flyway --> Selenium
+Jbehave --> Selenium : A46  A47
+Jbehave --> Jmeter : A46  A47
+Jira --> Jmeter : A50.0  A50.0
+Selenium --> Selenium : A279  A280
+Jmeter --> Jmeter : A283  A284
+Selenium --> Jira : A305  A306.0
+Jmeter --> Jira : A309.0  A310.0
+Jira --> Text
+_UNIX_LINUX_ --> Jira
+Jira --> XL
+Deploy --> XL
+OverOps --> XL
+Deploy --> OverOps : A352  A354.0
+
+@enduml
