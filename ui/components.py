@@ -98,9 +98,10 @@ def render_welcome() -> None:
               <div class="icon">📊</div>
               <div class="title" style="color:#f59e0b;">As-Is Architecture Mode</div>
               <div class="desc">
-                Zero LLM cost — generates People, Process &amp; Technology diagrams
-                directly from your questionnaire via the core Python generators.
-                Output rendered as <strong>Mermaid</strong> or <strong>PlantUML</strong>.
+                Generates People, Process &amp; Technology Architecture diagrams
+                directly from your questionnaire and exported as
+                <strong>mermaid (.mmd)</strong> and <strong>dotgraph (.dot)</strong>
+                format for ready use. It uses <strong>Naive / Basic RAG</strong> and <strong>LLM</strong>.
               </div>
               <div style="margin-top:8px;font-size:0.75rem;color:#8b949e;">
                 <em>Try: "Create an As-Is People Architecture"</em>
@@ -110,9 +111,10 @@ def render_welcome() -> None:
               <div class="icon">🔮</div>
               <div class="title" style="color:#10b981;">To-Be Architecture Mode</div>
               <div class="desc">
-                LLM + Graph-RAG — generates recommended target-state diagrams
-                across People, Process &amp; Technology with actionable improvements.
-                Output also rendered as <strong>Mermaid</strong> or <strong>PlantUML</strong>.
+                Generates recommended People, Process &amp; Technology Architecture
+                diagrams with actionable improvement as
+                <strong>mermaid (.mmd)</strong> and <strong>dotgraph (.dot)</strong>
+                format for ready use. It uses <strong>Graph RAG</strong> and <strong>LLM</strong>.
               </div>
               <div style="margin-top:8px;font-size:0.75rem;color:#8b949e;">
                 <em>Try: "Create a To-Be Technology Architecture"</em>
@@ -181,22 +183,12 @@ def render_mode_badge(mode: str) -> None:
 # ---------------------------------------------------------------------------
 
 def render_eval_bar(score: float | None) -> None:
-    """Render a mini progress bar showing the RAG eval score."""
+    """Log the RAG eval score — not shown in UI per design decision."""
     if score is None:
         return
+    import logging as _logging
     pct = min(100, max(0, int(score * 100)))
-    label = f"Eval score: {pct}%"
-    st.markdown(
-        f"""
-        <div class="eval-bar">
-          <span>{label}</span>
-          <div class="eval-bar-track">
-            <div class="eval-bar-fill" style="width:{pct}%;"></div>
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    _logging.getLogger(__name__).info("Eval score: %d%%", pct)
 
 
 # ---------------------------------------------------------------------------
@@ -618,7 +610,7 @@ def render_model_card(model_name: str, base_url: str = "") -> None:
 
     st.markdown(
         f"""
-        <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;
+        <div style="border:1px solid rgba(139,148,158,0.2);border-radius:8px;
                     padding:8px 10px;margin-bottom:4px;">
           <div style="display:flex;align-items:center;gap:6px;">
             <span style="font-size:1rem;">🤖</span>
@@ -736,7 +728,7 @@ def render_token_counter(
 
           <!-- Prompt / completion breakdown -->
           <div style="width:100%;display:flex;gap:6px;margin-bottom:4px;">
-            <div style="flex:1;background:#161b22;border:1px solid #21262d;
+            <div style="flex:1;border:1px solid rgba(139,148,158,0.2);
                         border-radius:6px;padding:5px 6px;text-align:center;">
               <div style="font-size:0.65rem;color:#8b949e;text-transform:uppercase;
                           letter-spacing:0.05em;">Prompt</div>
@@ -744,7 +736,7 @@ def render_token_counter(
                 {prompt_tokens:,}
               </div>
             </div>
-            <div style="flex:1;background:#161b22;border:1px solid #21262d;
+            <div style="flex:1;border:1px solid rgba(139,148,158,0.2);
                         border-radius:6px;padding:5px 6px;text-align:center;">
               <div style="font-size:0.65rem;color:#8b949e;text-transform:uppercase;
                           letter-spacing:0.05em;">Completion</div>
@@ -752,7 +744,7 @@ def render_token_counter(
                 {completion_tokens:,}
               </div>
             </div>
-            <div style="flex:1;background:#161b22;border:1px solid #21262d;
+            <div style="flex:1;border:1px solid rgba(139,148,158,0.2);
                         border-radius:6px;padding:5px 6px;text-align:center;">
               <div style="font-size:0.65rem;color:#8b949e;text-transform:uppercase;
                           letter-spacing:0.05em;">Calls</div>
@@ -774,7 +766,7 @@ def render_token_counter(
         lc_t = f"{last_call_total:,}"
         st.markdown(
             f"""
-            <div style="background:rgba(96,165,250,0.07);border:1px solid rgba(96,165,250,0.2);
+            <div style="border:1px solid rgba(96,165,250,0.2);
                         border-radius:6px;padding:6px 8px;margin-bottom:6px;">
               <div style="font-size:0.65rem;color:#60a5fa;font-weight:700;
                           text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">
