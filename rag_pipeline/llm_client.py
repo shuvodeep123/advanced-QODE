@@ -30,8 +30,14 @@ from openai import (
     APITimeoutError,
     OpenAI,
 )
+import instructor
+from pydantic import BaseModel
 
 from .token_counter import record_call, estimate_tokens
+
+# API latency thresholds (milliseconds)
+_LATENCY_WARNING_THRESHOLD: float = float(os.environ.get("LLM_LATENCY_WARNING_THRESHOLD", "30000"))
+_LATENCY_CRITICAL_THRESHOLD: float = float(os.environ.get("LLM_LATENCY_CRITICAL_THRESHOLD", "180000"))
 
 # override=True ensures the .env file always wins over stale shell exports
 # (e.g. an old hf_ token that was exported in a previous session).
@@ -216,6 +222,9 @@ def _is_retryable(exc: Exception) -> bool:
     if isinstance(exc, APIStatusError):
         # 429 rate-limit, 500/502/503 server errors, 524 Cloudflare timeout
         return exc.status_code in (429, 500, 502, 503, 524, 529)
+    # Latency threshold exceeded — switch provider
+    if isinstance(exc, RuntimeError) and "API latency" in str(exc):
+        return True
     return False
 
 
@@ -223,8 +232,11 @@ def _call_with_fallback(messages: list[dict], **api_kwargs):
     """Try each provider in order with per-provider exponential-backoff retry.
 
     For each provider, attempts up to ``_MAX_RETRIES + 1`` times before moving
-    to the next one.  Returns ``(response, provider)`` from the first success.
+    to the next one.  Returns ``(response, provider, latency_ms)`` from the first success.
     Raises the last exception if every provider exhausts its retries.
+
+    Includes prompt caching: system prompts are cached for 5 minutes to reduce
+    token consumption across turns in a session.
     """
     providers = _get_providers()
     last_exc: Exception | None = None
@@ -233,19 +245,73 @@ def _call_with_fallback(messages: list[dict], **api_kwargs):
         delay = _BACKOFF_BASE
         for attempt in range(1, _MAX_RETRIES + 2):
             try:
-                response = provider.client().chat.completions.create(
-                    model=provider.model,
-                    messages=messages,
-                    temperature=_TEMPERATURE,
-                    timeout=_TIMEOUT,
-                    **api_kwargs,
-                )
+                start_time = time.time()
+
+                # Attempt prompt caching if supported (OpenAI-compatible providers)
+                # Not all providers support cache_control; fail gracefully if unsupported
+                cache_kwargs = dict(api_kwargs)
+                if messages and messages[0].get("role") == "system":
+                    cache_kwargs["cache_control"] = {"type": "ephemeral"}
+
+                try:
+                    response = provider.client().chat.completions.create(
+                        model=provider.model,
+                        messages=messages,
+                        temperature=_TEMPERATURE,
+                        timeout=_TIMEOUT,
+                        **cache_kwargs,
+                    )
+                except TypeError as te:
+                    # Provider doesn't support cache_control — retry without it
+                    if "cache_control" in str(te):
+                        logger.debug(
+                            "[%s] Provider does not support prompt caching; retrying without cache_control",
+                            provider.name,
+                        )
+                        cache_kwargs.pop("cache_control", None)
+                        response = provider.client().chat.completions.create(
+                            model=provider.model,
+                            messages=messages,
+                            temperature=_TEMPERATURE,
+                            timeout=_TIMEOUT,
+                            **cache_kwargs,
+                        )
+                    else:
+                        raise
+                latency_ms = (time.time() - start_time) * 1000
+
+                # Log cache hit/miss info if available
+                usage = getattr(response, "usage", None)
+                cache_read_tokens = getattr(usage, "cache_read_input_tokens", 0) if usage else 0
+                cache_creation_tokens = getattr(usage, "cache_creation_input_tokens", 0) if usage else 0
+                if cache_read_tokens > 0 or cache_creation_tokens > 0:
+                    logger.info(
+                        "[%s] Prompt cache: read=%d tokens, created=%d tokens",
+                        provider.name, cache_read_tokens, cache_creation_tokens,
+                    )
+
+                if latency_ms > _LATENCY_CRITICAL_THRESHOLD:
+                    logger.error(
+                        "[%s] CRITICAL: API latency %.0f ms exceeds threshold %.0f ms. "
+                        "Consider switching LLM providers.",
+                        provider.name, latency_ms, _LATENCY_CRITICAL_THRESHOLD,
+                    )
+                    raise RuntimeError(
+                        f"API latency {latency_ms:.0f}ms exceeds critical threshold "
+                        f"{_LATENCY_CRITICAL_THRESHOLD:.0f}ms. Switch LLM provider."
+                    )
+                elif latency_ms > _LATENCY_WARNING_THRESHOLD:
+                    logger.warning(
+                        "[%s] WARNING: API latency %.0f ms exceeds warning threshold %.0f ms",
+                        provider.name, latency_ms, _LATENCY_WARNING_THRESHOLD,
+                    )
+
                 if provider is not providers[0] or attempt > 1:
                     logger.info(
-                        "LLM call succeeded via %s (attempt %d)",
-                        provider.name, attempt,
+                        "LLM call succeeded via %s (attempt %d, latency: %.0f ms)",
+                        provider.name, attempt, latency_ms,
                     )
-                return response, provider
+                return response, provider, latency_ms
             except Exception as exc:
                 if not _is_retryable(exc):
                     raise
@@ -411,12 +477,86 @@ def _extract_thinking(text: str) -> tuple[str, str]:
 
 
 
+def chat_structured(
+    messages: list[dict],
+    response_model: type[BaseModel],
+    model: str = MODEL,
+) -> BaseModel:
+    """Send messages and enforce structured Pydantic response.
+
+    Uses Instructor to patch the OpenAI client for automatic response
+    validation against the provided Pydantic model.
+    Raises ValidationError if LLM output doesn't match schema.
+    """
+    if _HF_USE_LOCAL:
+        logger.warning("Structured output not supported with local HF backend; using unstructured chat")
+        reply = _local_chat(messages)
+        record_call(
+            prompt_tokens=estimate_tokens(messages, _HF_LOCAL_MODEL),
+            completion_tokens=estimate_tokens(
+                [{"role": "assistant", "content": reply}], _HF_LOCAL_MODEL
+            ),
+            model=_HF_LOCAL_MODEL,
+        )
+        # Return a minimal BaseModel instance for compatibility
+        return response_model(**{"data": reply})
+
+    # Patch the provider's OpenAI client with Instructor
+    providers = _get_providers()
+    client = instructor.from_openai(providers[0].client())
+
+    try:
+        # Enable prompt caching for structured output (if supported)
+        cache_kwargs = {}
+        if messages and messages[0].get("role") == "system":
+            cache_kwargs["cache_control"] = {"type": "ephemeral"}
+
+        try:
+            response = client.chat.completions.create(
+                model=providers[0].model,
+                messages=messages,
+                response_model=response_model,
+                temperature=_TEMPERATURE,
+                timeout=_TIMEOUT,
+                **cache_kwargs,
+            )
+        except TypeError as te:
+            # Provider doesn't support cache_control — retry without it
+            if "cache_control" in str(te):
+                logger.debug("Provider does not support prompt caching in structured mode; retrying")
+                cache_kwargs.pop("cache_control", None)
+                response = client.chat.completions.create(
+                    model=providers[0].model,
+                    messages=messages,
+                    response_model=response_model,
+                    temperature=_TEMPERATURE,
+                    timeout=_TIMEOUT,
+                    **cache_kwargs,
+                )
+            else:
+                raise
+        # Record usage
+        record_call(
+            prompt_tokens=estimate_tokens(messages, providers[0].model),
+            completion_tokens=estimate_tokens(
+                [{"role": "assistant", "content": str(response)}], providers[0].model
+            ),
+            model=providers[0].model,
+        )
+        return response
+    except Exception as e:
+        logger.error("Structured chat failed: %s", e)
+        raise
+
+
 def chat(messages: list[dict], model: str = MODEL) -> str:
     """Send *messages* to the LLM and return the full response text.
 
     Routes to the local HuggingFace transformers backend when
     ``HF_USE_LOCAL=true`` is set; otherwise walks the provider fallback
     chain until a response is received.
+
+    Raises RuntimeError if API latency exceeds critical threshold.
     """
     if _HF_USE_LOCAL:
         reply = _local_chat(messages)
@@ -430,7 +570,7 @@ def chat(messages: list[dict], model: str = MODEL) -> str:
         )
         return reply
 
-    response, provider = _call_with_fallback(messages)
+    response, provider, latency_ms = _call_with_fallback(messages)
     # Record exact usage from the response object (always present for non-streaming)
     usage = getattr(response, "usage", None)
     if usage:
@@ -463,6 +603,8 @@ def chat_stream(messages: list[dict], model: str = MODEL) -> Iterator[str]:
     When ``HF_USE_LOCAL=true`` streams via ``TextIteratorStreamer`` from the
     local model; otherwise streams from the remote provider chain.
 
+    Raises RuntimeError if API latency exceeds critical threshold during connection.
+
     Args:
         messages: OpenAI-format message list.
         model:    Ignored — each provider uses its own configured model.
@@ -485,7 +627,7 @@ def chat_stream(messages: list[dict], model: str = MODEL) -> Iterator[str]:
         )
         return
 
-    stream, provider = _call_with_fallback(
+    stream, provider, latency_ms = _call_with_fallback(
         messages,
         stream=True,
         stream_options={"include_usage": True},
