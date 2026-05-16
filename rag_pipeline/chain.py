@@ -79,6 +79,24 @@ _ASIS_KEYWORDS = [
     "show", "render", "display", "visualise", "visualize", "diagram",
 ]
 
+# Diagram-specific nouns — a generate verb only triggers diagram mode if one of these is present
+_DIAGRAM_NOUNS = [
+    "diagram", "chart", "flowchart", "architecture diagram",
+    "network diagram", "graph", "mermaid", "dot graph",
+    "people diagram", "process diagram", "technology diagram",
+    "as-is diagram", "to-be diagram", "architecture",
+]
+
+# Agile / planning terms — presence of any of these suppresses diagram routing
+_PLANNING_EXCLUSION_KEYWORDS = [
+    "epic", "epics", "story", "stories", "task", "tasks",
+    "story point", "story points", "sprint", "backlog",
+    "stakeholder", "dependency", "dependencies",
+    "acceptance criteria", "definition of done",
+    "jira", "confluence", "scrum", "kanban", "agile",
+    "user story", "feature request", "milestone",
+]
+
 # Keywords that trigger diagram generation in the principles path too
 _GENERATE_KEYWORDS = [
     "create", "generate", "build", "produce", "make", "draw",
@@ -156,14 +174,25 @@ _TOBE_KEYWORDS = ["to-be", "to be", "tobe", "target state", "future state", "tar
 def detect_asis_request(query: str) -> bool:
     """Return True when the query is asking for an As-Is architecture diagram.
 
-    Explicitly returns False for To-Be requests even if generate keywords present,
-    since To-Be always routes through the LLM path.
+    Explicitly returns False for To-Be requests and planning/agile requests
+    (epics, stories, tasks, etc.) even if generate verbs are present.
     """
     lower = query.lower()
-    # To-Be always takes LLM path — never As-Is
     if any(kw in lower for kw in _TOBE_KEYWORDS):
         return False
-    return any(kw in lower for kw in _ASIS_KEYWORDS)
+    if any(kw in lower for kw in _PLANNING_EXCLUSION_KEYWORDS):
+        return False
+    # Must have an asis marker AND a diagram noun to qualify
+    has_asis_marker = any(kw in lower for kw in ["as-is", "as is", "asis", "current state", "existing"])
+    has_diagram_noun = any(kw in lower for kw in _DIAGRAM_NOUNS)
+    has_generate_verb = any(kw in lower for kw in _GENERATE_KEYWORDS)
+    # Explicit asis markers with diagram noun — clear intent
+    if has_asis_marker and has_diagram_noun:
+        return True
+    # Generate verb + diagram noun without asis marker — could be either; treat as asis only if no tobe
+    if has_generate_verb and has_diagram_noun:
+        return True
+    return False
 
 
 # Keywords that indicate a narrative/planning follow-up (document-worthy response)
@@ -175,6 +204,12 @@ _NARRATIVE_KEYWORDS = [
     "all engineering", "all principles",
     "success metrics", "metrics", "days", "timeline",
     "propensity", "people propensity", "organizational",
+    # Agile / project planning
+    "epic", "epics", "story", "stories", "task", "tasks",
+    "story point", "story points", "sprint", "backlog",
+    "stakeholder", "dependency", "dependencies",
+    "acceptance criteria", "definition of done",
+    "user story", "milestone", "jira", "scrum", "kanban",
 ]
 _DIAGRAM_NOUN_KEYWORDS = ["diagram", "chart", "flowchart", "architecture"]
 
@@ -198,8 +233,18 @@ def detect_narrative_request(query: str) -> bool:
 
 
 def _wants_diagram(query: str) -> bool:
+    """True only when the query explicitly requests a diagram/architecture output.
+
+    Requires BOTH a generate verb AND a diagram noun. Agile/planning terms
+    (epics, stories, tasks, story points, etc.) suppress diagram routing even
+    if generate verbs are present.
+    """
     lower = query.lower()
-    return any(kw in lower for kw in _GENERATE_KEYWORDS)
+    if any(kw in lower for kw in _PLANNING_EXCLUSION_KEYWORDS):
+        return False
+    has_verb = any(kw in lower for kw in _GENERATE_KEYWORDS)
+    has_noun = any(kw in lower for kw in _DIAGRAM_NOUNS)
+    return has_verb and has_noun
 
 
 # ---------------------------------------------------------------------------
@@ -471,8 +516,25 @@ def _node_principles(state: AgentState) -> AgentState:
 
     if graph_data:
         eval_valid = eval_metrics.validate_context_before_llm(graph_data)
+        node_count  = len(graph_data.get("nodes", graph_data.get("entities", [])))
+        edge_count  = len(graph_data.get("edges", graph_data.get("relationships", [])))
+        chunk_count = len(chunks)
+        asis_present = bool(state.get("asis_diagram_data"))
+        logger.info(
+            "[PRE-LLM DATA CHECK] graph_nodes=%d  graph_edges=%d  "
+            "retrieval_chunks=%d  asis_loaded=%s  intent=%s  eval_gate=%s",
+            node_count, edge_count, chunk_count, asis_present,
+            state.get("intent", "general"),
+            "PASS" if eval_valid else "WARN",
+        )
         if not eval_valid:
-            logger.warning("Graph context quality checks raised issues (proceeding with degraded context)")
+            logger.warning("[PRE-LLM DATA CHECK] Graph context quality issues — proceeding with degraded context")
+    else:
+        logger.warning(
+            "[PRE-LLM DATA CHECK] graph_nodes=0  graph_edges=0  "
+            "retrieval_chunks=%d  asis_loaded=%s  intent=%s  eval_gate=SKIP (no graph)",
+            len(chunks), bool(state.get("asis_diagram_data")), state.get("intent", "general"),
+        )
 
     # ── Validate grounding before LLM call ──────────────────────────────────
     is_grounded, reason = _validate_grounding(
@@ -572,6 +634,26 @@ def _node_principles(state: AgentState) -> AgentState:
                 logger.info("Conversation quality policy passed")
             else:
                 logger.warning("Conversation quality policy check failed (non-blocking)")
+
+            # ── Response completeness checks ──────────────────────────────
+            wants_diag_check = _wants_diagram(state.get("user_message", ""))
+            reply_check = state.get("reply_text", "")
+            if wants_diag_check:
+                has_dot      = "digraph" in reply_check.lower() or "```dot" in reply_check.lower()
+                has_mermaid  = "```mermaid" in reply_check.lower()
+                has_labels   = "|\"" in reply_check or "-->|" in reply_check or "->" in reply_check
+                edge_count_r = reply_check.count("-->") + reply_check.count("->")
+                logger.info(
+                    "[POST-LLM RESPONSE CHECK] has_dot=%s  has_mermaid=%s  "
+                    "has_edge_labels=%s  edge_count=%d",
+                    has_dot, has_mermaid, has_labels, edge_count_r,
+                )
+                if not has_dot:
+                    logger.warning("[POST-LLM RESPONSE CHECK] DOT block missing from diagram response")
+                if not has_mermaid:
+                    logger.warning("[POST-LLM RESPONSE CHECK] Mermaid block missing from diagram response")
+                if edge_count_r < 3:
+                    logger.warning("[POST-LLM RESPONSE CHECK] Very few edges (%d) — diagram may have disconnected nodes", edge_count_r)
         except Exception as e:
             logger.warning("Policy validation issue (non-blocking): %s", e)
 
@@ -688,16 +770,26 @@ def _node_principles(state: AgentState) -> AgentState:
                 context=context_text,
             )
             tracer.log_score("faithfulness", state["eval_score"])
+            raw_score   = state["eval_score"] or 0.0
+            score_10    = round(raw_score * 10, 1)
+            pct         = round(raw_score * 100, 1)
+            band        = (
+                "EXCELLENT" if score_10 >= 8.5 else
+                "GOOD"      if score_10 >= 7.0 else
+                "FAIR"      if score_10 >= 5.0 else
+                "LOW"
+            )
+            logger.info(
+                "[ACCURACY] %.1f/10  (%.1f%%)  [%s] — delivering response to user",
+                score_10, pct, band,
+            )
 
-            # Quality threshold: flag low-confidence responses for review
-            if state["eval_score"] and state["eval_score"] < 0.6:
+            # Quality threshold: log low-confidence responses (not shown in UI)
+            if raw_score < 0.6:
                 logger.warning(
-                    "Low eval score (%.2f) — response may need review",
-                    state["eval_score"],
-                )
-                state["reply_text"] += (
-                    "\n\n⚠️ **Low confidence**: This response scored below quality threshold. "
-                    "Please review and validate against source documents."
+                    "[ACCURACY] Low Confidence — score %.1f/10 below threshold (6.0/10). "
+                    "Please review and validate against source documents.",
+                    score_10,
                 )
     except Exception as e:
         logger.warning("Eval scoring failed (non-blocking): %s", e)
@@ -785,29 +877,29 @@ over pillars, roles, tools, and activities.
   As-Is Technology diagram, you MUST:\
     1. **Stay within the verified As-Is toolchain** — Only recommend enhancements or replacements \
        for tools/platforms that are already present in the questionnaire.\
-    2. **OPEN-SOURCE ONLY** — Do NOT recommend proprietary, SaaS, or AI-based commercial tools. \
-       All recommendations MUST be open-source projects. Examples:\
-       - Jenkins, GitLab CI/CD, ArgoCD (not GitHub Actions or Spinnaker enterprise)\
-       - Prometheus, Grafana, ELK Stack (not Datadog, New Relic, or commercial APM)\
-       - HashiCorp (Terraform, Vault, Consul — all open-source)\
-       - Apache/CNCF projects (Kafka, Spark, Kubernetes, etc.)\
-       - Community-driven tools with active repositories\
-    3. **NO trendy or non-production-ready tools** — Avoid experimental projects, beta software, \
-       or cutting-edge unproven solutions. Prioritize battle-tested, widely-deployed open-source.\
+    2. **Best-fit tools** — Recommend the most effective tool for each capability gap, whether \
+       open-source, commercial, SaaS, or AI-enabled. Examples:\
+       - CI/CD: Jenkins, GitLab CI, GitHub Actions, CircleCI\
+       - Observability: Prometheus+Grafana, Datadog, New Relic, Dynatrace\
+       - Security: HashiCorp Vault, AWS Secrets Manager, CyberArk\
+       - AI/ML Ops: MLflow, Weights & Biases, Azure ML, SageMaker\
+       - AI-enabled services: GitHub Copilot, Snyk, Veracode, Harness, OpsRamp\
+    3. **Prioritize production-proven tools** — Avoid experimental or beta software. \
+       Prefer widely-adopted tools with strong enterprise support.\
     4. **Justify each recommendation** — Explain:\
        - Why the tool fits into the existing As-Is architecture\
        - Integration points and data flows\
-       - Maintenance and community support status\
        - Migration path from current state (if applicable)\
-    5. **No standalone new tools** — Do NOT recommend entirely new tool categories. Focus on \
-       capability enhancements to what already exists.
+    5. **AI enablement is encouraged** — Actively identify where AI-assisted tooling \
+       (copilots, AIOps, intelligent testing, predictive security) improves the architecture.
 - **To-Be recommendations**: ALWAYS ground in the verified As-Is data and the QODE Knowledge \
-  Graph. Recommend ONLY open-source tools and platforms. Do NOT suggest proprietary, SaaS, \
-  cloud-managed, or experimental solutions. For every tool recommendation:\
-    • Verify it is open-source (check project repository, license)\
-    • Confirm active maintenance (recent commits, community support)\
-    • Justify integration with existing As-Is architecture\
-    • Provide setup/deployment guidance grounded in knowledge graph patterns
+  Graph. Recommend the best-fit tools regardless of licensing model. Actively include \
+  commercially available and AI-enabled services where they deliver clear improvement. \
+  For every tool recommendation:\
+    • Justify fit with the existing As-Is architecture\
+    • Confirm the tool is production-proven and widely adopted\
+    • Identify integration points and data flows\
+    • Flag where AI/ML-enabled capabilities add measurable value
 - Never invent facts that contradict the verified As-Is data when it is present.
 
 ## Diagram Output Format (MANDATORY — EXACT formats only)
@@ -818,12 +910,39 @@ over pillars, roles, tools, and activities.
 - **OPTIONAL — Structured JSON** (for improved validation): After the diagrams, optionally \
   provide a JSON block with nodes and edges arrays.
 - Do NOT mention draw.io, PlantUML, or other formats — those are handled internally.
-- Include labelled nodes for every key role / tool / process in the architecture.
 - DOT direction: `rankdir=TD` for People/Process; `rankdir=LR` for Technology.
 - Mermaid direction: `flowchart TD` for People/Process; `flowchart LR` for Technology.
-- For a **People** diagram: actor nodes → responsibility / ownership arrows.
-- For a **Process** diagram: activity nodes → sequence / dependency arrows.
-- For a **Technology** diagram: tool/platform nodes → integration / data-flow arrows.
+
+## Diagram Graph Quality Rules (MANDATORY — no exceptions)
+**CONNECTIVITY**: Every node MUST have at least one edge. Zero isolated/disconnected nodes. \
+If a node has no natural connection, attach it to the most relevant parent with an appropriate label.
+
+**EDGE LABELS (MANDATORY)**: Every edge MUST carry a descriptive label that explains the \
+relationship or improvement. Bare unlabelled arrows are NOT acceptable. Examples:\
+  - People: `-->|"owns / approves"| `, `-->|"reviews & escalates"|`\
+  - Process: `-->|"triggers"| `, `-->|"feeds into"| `, `-->|"gates release"|`\
+  - Technology: `-->|"deploys via"| `, `-->|"monitors"| `, `-->|"scans for CVEs"|`\
+  - To-Be improvement edges: `-->|"replaces — AI-assisted"| `, `-->|"enhances with ML scoring"|`
+
+**AI TOOL INFUSION (MANDATORY for To-Be)**: For every major capability area, explicitly \
+evaluate whether an AI-enabled or intelligent tool should be introduced or replace an existing \
+node. Label such nodes with `[AI]` suffix (e.g., `CopilotAI["GitHub Copilot [AI]"]`). \
+Connect them with edges labelled to explain the AI value-add.
+
+**COMMERCIAL TOOL INCLUSION**: Do NOT default to open-source only. Where a commercial or \
+SaaS tool is the industry-standard best practice for that capability, include it. \
+Examples: Datadog, Snyk, GitHub Actions, Harness, PagerDuty, Veracode, Dynatrace.
+
+**IMPROVEMENT TRACEABILITY (To-Be only)**: For every IMPROVED or REPLACED node, the edge \
+from its As-Is predecessor MUST be labelled with what changed and why. \
+Example: `OldJenkins -->|"replaced — native GitOps, zero scripting"| ArgoCDNew`
+
+**NO ORPHAN SUBGRAPHS**: If using subgraphs/clusters, every subgraph must have at least \
+one cross-subgraph edge connecting it to the rest of the diagram.
+
+- For a **People** diagram: actor nodes → responsibility / ownership arrows with role labels.
+- For a **Process** diagram: activity nodes → sequence / dependency arrows with action labels.
+- For a **Technology** diagram: tool/platform nodes → integration / data-flow arrows with protocol or capability labels.
 
 ## To-Be Diagram Derivation (MANDATORY when As-Is data is present)
 When producing a To-Be diagram you MUST:
