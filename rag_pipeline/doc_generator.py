@@ -16,9 +16,11 @@ Public API
 from __future__ import annotations
 
 import io
+import logging
 import re
 from typing import Literal
 
+logger = logging.getLogger(__name__)
 DocFormat = Literal["word", "excel", "pptx", "pdf"]
 
 
@@ -261,6 +263,7 @@ def generate_document(
     fmt: DocFormat,
     title: str,
     content: str,
+    images: list[dict] | None = None,
 ) -> tuple[bytes, str, str]:
     """Generate a document in the requested format.
 
@@ -268,6 +271,7 @@ def generate_document(
         fmt:     One of "word", "excel", "pptx", "pdf".
         title:   Document title (used in heading and filename).
         content: Markdown-formatted text from the LLM.
+        images:  Optional list of generated images: [{"url": str, "prompt": str, ...}, ...]
 
     Returns:
         ``(file_bytes, filename, mime_type)``
@@ -285,4 +289,21 @@ def generate_document(
         raise ValueError(f"Unsupported format: {fmt!r}")
 
     data = generators[fmt](title, content)
+
+    # Embed images for Word format (only format that supports easy image insertion)
+    if fmt == "word" and images:
+        try:
+            from .image_generator import embed_images_in_document
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
+                tmp.write(data)
+                tmp_path = tmp.name
+            embed_images_in_document(tmp_path, images, placement="appendix")
+            with open(tmp_path, "rb") as f:
+                data = f.read()
+            import os
+            os.unlink(tmp_path)
+        except Exception as e:
+            logger.warning("Failed to embed images in Word document: %s", e)
+
     return data, filename, _MIME[fmt]
