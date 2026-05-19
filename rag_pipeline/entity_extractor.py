@@ -1,7 +1,7 @@
 """
 entity_extractor.py — QODE entity extraction from natural language queries.
 
-Identifies references to QODE pillars, human roles, and automation tools
+Identifies references to QODE pillars, human roles and automation tools
 in a free-text query using the knowledge graph's entity label index.
 No external LLM call is required — extraction is deterministic keyword matching,
 making it fast and suitable for the hot path of every retrieval request.
