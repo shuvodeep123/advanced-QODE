@@ -416,6 +416,7 @@ def ingest_all(
         if graph_path is not None
         else str(Path(chroma_path).parent / "graph_db" / "qode_graph.json")
     )
+    graph = None
     try:
         from .graph_builder import build_graph, save_graph
 
@@ -426,5 +427,19 @@ def ingest_all(
         logger.warning(
             "Knowledge graph build failed (non-fatal, vector-only mode active): %s", exc
         )
+
+    # 7. Sync the knowledge graph to Neo4j (optional, non-fatal)
+    if graph is not None:
+        try:
+            from .neo4j_sync import get_neo4j_sync
+
+            neo4j = get_neo4j_sync()
+            if neo4j is not None:
+                neo4j.sync_graph(graph)
+                logger.info("Knowledge graph synced to Neo4j")
+        except Exception as exc:
+            logger.warning(
+                "Neo4j sync failed (non-fatal, NetworkX path unaffected): %s", exc
+            )
 
     return len(all_docs)

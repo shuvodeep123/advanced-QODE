@@ -42,7 +42,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from .entity_extractor import EntityExtractor
 from .graph_builder import (
@@ -52,6 +52,9 @@ from .graph_builder import (
     load_graph,
 )
 from .retriever import retrieve as _vector_retrieve
+
+if TYPE_CHECKING:
+    from .neo4j_sync import Neo4jSync
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +79,14 @@ class HybridGraphRetriever:
     """Production-grade hybrid retriever for the QODE Graph-RAG pipeline.
 
     Combines structured graph traversal with vector similarity search.
-    Each retrieved context chunk is tagged with ``"source": "graph"`` or
-    ``"source": "vector"`` so the prompt builder can render them in
-    separate, labelled sections.
+    When Neo4j is configured (``NEO4J_URI`` / ``NEO4J_USER`` /
+    ``NEO4J_PASSWORD`` env vars present), a Cypher BFS query is run
+    alongside the NetworkX BFS and the results are merged and deduplicated
+    by content hash, providing two independent structural views.
+
+    Each retrieved context chunk is tagged with ``"source": "graph"``,
+    ``"source": "neo4j"``, or ``"source": "vector"`` so the prompt builder
+    can render them in separate, labelled sections.
 
     Thread safety:
         After construction the retriever is effectively read-only.
@@ -91,10 +99,12 @@ class HybridGraphRetriever:
         self,
         graph: QODEKnowledgeGraph,
         chroma_path: str = "./chroma_db",
+        neo4j_sync: "Neo4jSync | None" = None,
     ) -> None:
         self._graph = graph
         self._chroma_path = chroma_path
         self._extractor = EntityExtractor(graph)
+        self._neo4j: "Neo4jSync | None" = neo4j_sync
         # Pre-compute community summaries once at construction time
         self._community_summaries: dict[str, str] = graph.community_summaries()
 
@@ -161,7 +171,14 @@ class HybridGraphRetriever:
     # ------------------------------------------------------------------
 
     def _graph_context(self, query: str, hops: int) -> list[dict]:
-        """Extract entities from *query* and return graph-traversal chunks."""
+        """Extract entities from *query* and return graph-traversal chunks.
+
+        Produces up to two chunks:
+        1. **NetworkX BFS** — always present when entities are matched.
+        2. **Neo4j Cypher BFS** — added when a ``Neo4jSync`` instance is
+           available; tagged ``source="neo4j"`` so callers can distinguish it.
+        Both chunks are deduplicated by content hash in :meth:`retrieve`.
+        """
         entity_ids = self._extractor.extract(query)
 
         if not entity_ids:
@@ -182,24 +199,50 @@ class HybridGraphRetriever:
                 ]
             return []
 
-        # Traverse the graph from matched entity seeds
-        subgraph_text = self._graph.get_subgraph_text(entity_ids, hops=hops)
-        if not subgraph_text:
-            return []
+        results: list[dict] = []
 
-        return [
-            {
-                "text": subgraph_text,
-                "metadata": {
-                    "source": "graph_traversal",
-                    # Store up to 5 seed entity IDs for traceability
-                    "seed_entities": ", ".join(entity_ids[:5]),
-                    "hops": str(hops),
-                },
-                "distance": 0.0,  # graph matches are exact — distance is 0
-                "source": "graph",
-            }
-        ]
+        # 1. NetworkX BFS (always)
+        subgraph_text = self._graph.get_subgraph_text(entity_ids, hops=hops)
+        if subgraph_text:
+            results.append(
+                {
+                    "text": subgraph_text,
+                    "metadata": {
+                        "source": "graph_traversal",
+                        "seed_entities": ", ".join(entity_ids[:5]),
+                        "hops": str(hops),
+                    },
+                    "distance": 0.0,
+                    "source": "graph",
+                }
+            )
+
+        # 2. Neo4j Cypher BFS (optional second read path)
+        if self._neo4j is not None:
+            try:
+                neo4j_text = self._neo4j.query_subgraph_text(
+                    entity_ids, hops=hops
+                )
+                if neo4j_text:
+                    results.append(
+                        {
+                            "text": neo4j_text,
+                            "metadata": {
+                                "source": "neo4j_traversal",
+                                "seed_entities": ", ".join(entity_ids[:5]),
+                                "hops": str(hops),
+                            },
+                            "distance": 0.0,
+                            "source": "neo4j",
+                        }
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "Neo4j subgraph query failed (non-fatal, NetworkX result kept): %s",
+                    exc,
+                )
+
+        return results
 
     def _vector_context(
         self, query: str, k: int, diagram_type: Optional[str]
@@ -236,6 +279,12 @@ def get_retriever(
     if the file does not yet exist — ensuring the retriever always returns
     something useful even before the first ingest run.
 
+    When ``NEO4J_URI``, ``NEO4J_USER``, and ``NEO4J_PASSWORD`` environment
+    variables are set and the Neo4j instance is reachable, a
+    :class:`~rag_pipeline.neo4j_sync.Neo4jSync` instance is wired into the
+    retriever as an optional second read path.  The pipeline degrades
+    gracefully to NetworkX-only when Neo4j is absent or unavailable.
+
     Args:
         graph_path:  Path to the persisted graph JSON file.
         chroma_path: Path to the ChromaDB persistence directory.
@@ -257,14 +306,28 @@ def get_retriever(
         )
         graph = build_graph()
 
-    retriever = HybridGraphRetriever(graph=graph, chroma_path=chroma_path)
+    # Attempt to acquire the Neo4j second read path (non-fatal if absent)
+    neo4j_sync: "Neo4jSync | None" = None
+    try:
+        from .neo4j_sync import get_neo4j_sync
+
+        neo4j_sync = get_neo4j_sync()
+    except Exception as exc:
+        logger.warning("Could not initialise Neo4jSync (non-fatal): %s", exc)
+
+    retriever = HybridGraphRetriever(
+        graph=graph,
+        chroma_path=chroma_path,
+        neo4j_sync=neo4j_sync,
+    )
     _RETRIEVER_CACHE[cache_key] = retriever
     logger.info(
         "HybridGraphRetriever cached for key '%s'  "
-        "(graph: %d nodes / %d edges)",
+        "(graph: %d nodes / %d edges, neo4j=%s)",
         cache_key,
         graph.node_count,
         graph.edge_count,
+        "enabled" if neo4j_sync is not None else "disabled",
     )
     return retriever
 
