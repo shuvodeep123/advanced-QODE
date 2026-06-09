@@ -1,0 +1,13 @@
+Sprint No.,Story ID,Task ID,Task Description,Task Story Points,Dependencies,Deliverables
+4,AQ-406,AQ-406-T1,Design integration test coverage for ingestion to retrieval to output workflows,3,"AQ-201, AQ-202, AQ-203, AQ-204, AQ-304, AQ-404",Integration test scope and plan
+4,AQ-406,AQ-406-T2,Implement integration tests for questionnaire ingestion and graph/vector pipeline,3,AQ-406-T1,Verified end-to-end subsystem interactions
+4,AQ-406,AQ-406-T3,Implement integration tests for diagram generation and export artifact flows,2,"AQ-406-T1, AQ-304, AQ-404",Validated cross-module artifact generation
+4,AQ-406,AQ-406-T4,Automate integration test execution in CI with reports,2,"AQ-406-T2, AQ-406-T3",Repeatable integration test pipeline
+4,AQ-407,AQ-407-T1,Define regression test suite for core People Process Technology and To-Be capabilities,3,"AQ-301, AQ-302, AQ-303, AQ-401, AQ-402, AQ-403",Regression baseline coverage matrix
+4,AQ-407,AQ-407-T2,Create regression scenarios for ingestion retrieval diagram and export stability,2,AQ-407-T1,Regression scenario pack
+4,AQ-407,AQ-407-T3,Implement automated regression suite with reusable fixtures and golden outputs,3,"AQ-407-T2, AQ-205",Automated regression validation suite
+4,AQ-407,AQ-407-T4,Track regressions with reporting thresholds and release gates,2,AQ-407-T3,Regression quality gate process
+4,AQ-408,AQ-408-T1,Define end-to-end test journeys for upload analysis generation export and chat continuity,3,"AQ-404, AQ-405",E2E journey definitions
+4,AQ-408,AQ-408-T2,Implement end-to-end tests for user workflows across UI and backend services,3,AQ-408-T1,Validated user-critical journeys
+4,AQ-408,AQ-408-T3,Add test data management and environment setup for stable end-to-end execution,2,AQ-408-T2,Reliable E2E execution environment
+4,AQ-408,AQ-408-T4,Integrate end-to-end suite into CI/CD with failure diagnostics and artifact capture,2,"AQ-408-T2, AQ-408-T3",Operational E2E quality gate
