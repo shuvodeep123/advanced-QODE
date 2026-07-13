@@ -176,14 +176,13 @@ PILLAR_DEFINITIONS: list[dict[str, Any]] = [
         "pillar_num": 9,
         "diagram_type": "process",
         "roles": ["Ops", "SRE"],
-        "tools": ["Prometheus", "Grafana", "Datadog", "Dynatrace"],
+        "tools": ["Prometheus", "Grafana", "Datadog","Splunk", "PagerDuty", "Dynatrace"],
         "summary": (
             "Monitoring-based failure detection, self-healing, chaos engineering, "
-            "SLO/SLA management."
+            "SLO/SLA/SLI management, Observability, Monitoring, RCA, Known Error Database, Observability."
         ),
     },
 ]
-
 
 # ---------------------------------------------------------------------------
 # Internal helpers
