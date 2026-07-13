@@ -1,19 +1,6 @@
 """
 ingest.py — Multi-format ChromaDB document ingestion for advanced-QODE.
 
-Supported file types:
-  .xlsm / .xlsx   QODE questionnaire (Q_Stories sheet)
-  .docx           Word documents (python-docx)
-  .pdf            PDF documents (pypdf)
-  .txt            Plain text
-
-Knowledge sources ingested:
-  1. Hardcoded QODE pillar descriptions (9 pillars, always ingested).
-  2. README.md from the repo root.
-  3. Three diagram generator Python scripts.
-  4. Q_Stories rows from the QODE Excel questionnaire (Yes-rows only).
-  5. Any extra files passed via extra_file_paths (.docx / .pdf / .txt).
-
 Public API
 ----------
     ingest_all(excel_path, chroma_path, repo_root, graph_path, extra_file_paths) -> int
@@ -25,6 +12,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import shutil
 import uuid
 from pathlib import Path
 from typing import Any
@@ -41,8 +29,8 @@ _QODE_PILLARS: list[dict[str, Any]] = [
     {
         "id": "pillar_1",
         "text": (
-            "QODE Pillar 1 — Requirements & Planning: Covers user story creation, "
-            "backlog grooming, sprint planning, and requirement traceability. "
+            "QODE Pillar 1 — Requirement Engineering: Covers requirements elicitation, "
+            "user story creation, backlog grooming, sprint planning, and requirement traceability. "
             "Key roles: Product Owner, Business Analyst. "
             "Tools: Jira, Confluence, Azure DevOps Boards."
         ),
@@ -51,86 +39,105 @@ _QODE_PILLARS: list[dict[str, Any]] = [
     {
         "id": "pillar_2",
         "text": (
-            "QODE Pillar 2 — Design & Architecture: Covers solution design, "
-            "architecture review, threat modelling, and design approval gates. "
-            "Key roles: Architect, Tech Lead. "
-            "Tools: draw.io, Lucidchart, Enterprise Architect."
+            "QODE Pillar 2 — Code Engineering: Covers coding standards, solution design, "
+            "architecture review, peer review, static analysis, and unit testing. "
+            "Key roles: Developer, Architect, Tech Lead. "
+            "Tools: SonarQube, GitHub, GitLab, Bitbucket, draw.io, Enterprise Architect."
         ),
-        "metadata": {"source": "qode_pillars", "pillar": "2", "diagram_type": "people"},
+        "metadata": {"source": "qode_pillars", "pillar": "2", "diagram_type": "technology"},
     },
     {
         "id": "pillar_3",
         "text": (
-            "QODE Pillar 3 — Development & Code Quality: Covers coding standards, "
-            "peer review, static analysis, and unit testing. "
-            "Key roles: Developer, QA. "
-            "Tools: SonarQube, GitHub, GitLab, Bitbucket."
+            "QODE Pillar 3 — Data Engineering: Covers data pipeline design, data quality, "
+            "data governance, data modelling, and data integration. "
+            "Key roles: Data Engineer, Data Architect, Data Steward. "
+            "Tools: dbt, Apache Spark, Airflow, Great Expectations, Databricks."
         ),
         "metadata": {"source": "qode_pillars", "pillar": "3", "diagram_type": "technology"},
     },
     {
         "id": "pillar_4",
         "text": (
-            "QODE Pillar 4 — Continuous Integration: Covers build automation, "
-            "automated unit/integration tests, and artefact management. "
-            "Key roles: DevOps Lead, Developer. "
-            "Tools: Jenkins, GitHub Actions, CircleCI, Nexus, JFrog."
+            "QODE Pillar 4 — Quality Engineering: Covers test strategy, automated testing, "
+            "integration testing, performance testing, and quality gates. "
+            "Key roles: QA Engineer, Test Lead, SDET. "
+            "Tools: Selenium, Cypress, JMeter, Postman, TestRail."
         ),
-        "metadata": {"source": "qode_pillars", "pillar": "4", "diagram_type": "technology"},
+        "metadata": {"source": "qode_pillars", "pillar": "4", "diagram_type": "process"},
     },
     {
         "id": "pillar_5",
         "text": (
-            "QODE Pillar 5 — Security & Compliance (DevSecOps): Covers SAST, DAST, "
-            "SCA, secrets scanning, container scanning, and compliance gates. "
-            "Key roles: Security Engineer, Ops-Rel. "
-            "Tools: Snyk, Checkmarx, OWASP ZAP, Twistlock."
+            "QODE Pillar 5 — Build Engineering: Covers build automation, continuous integration, "
+            "artefact management, and dependency management. "
+            "Key roles: DevOps Lead, Developer, Build Engineer. "
+            "Tools: Jenkins, GitHub Actions, CircleCI, Nexus, JFrog Artifactory."
         ),
-        "metadata": {"source": "qode_pillars", "pillar": "5", "diagram_type": "process"},
+        "metadata": {"source": "qode_pillars", "pillar": "5", "diagram_type": "technology"},
     },
     {
         "id": "pillar_6",
         "text": (
-            "QODE Pillar 6 — Continuous Delivery & Deployment: Covers release "
-            "pipeline, environment promotion, blue-green / canary deployments, "
-            "and rollback mechanisms. "
+            "QODE Pillar 6 — Release Engineering: Covers release pipeline, continuous delivery, "
+            "environment promotion, blue-green / canary deployments, and rollback mechanisms. "
             "Key roles: DevOps Lead, Release Manager. "
-            "Tools: ArgoCD, Spinnaker, Harness, Helm."
+            "Tools: ArgoCD, Spinnaker, Harness, Helm, Flux."
         ),
         "metadata": {"source": "qode_pillars", "pillar": "6", "diagram_type": "process"},
     },
     {
         "id": "pillar_7",
         "text": (
-            "QODE Pillar 7 — Infrastructure & Configuration Management: Covers "
-            "IaC, environment provisioning, configuration drift detection, and "
-            "secrets management. "
-            "Key roles: Ops-Infra, Cloud Engineer. "
-            "Tools: Terraform, Ansible, Puppet, HashiCorp Vault."
+            "QODE Pillar 7 — Environment Engineering: Covers infrastructure as code, "
+            "environment provisioning, configuration management, and secrets management. "
+            "Key roles: Ops-Infra, Cloud Engineer, Platform Engineer. "
+            "Tools: Terraform, Ansible, Puppet, HashiCorp Vault, Crossplane."
         ),
         "metadata": {"source": "qode_pillars", "pillar": "7", "diagram_type": "technology"},
     },
     {
         "id": "pillar_8",
         "text": (
-            "QODE Pillar 8 — Monitoring & Observability: Covers application "
-            "performance monitoring, log aggregation, distributed tracing, "
-            "alerting, and SLO tracking. "
-            "Key roles: Ops-Rel, SRE. "
-            "Tools: Prometheus, Grafana, ELK Stack, Datadog, Dynatrace."
+            "QODE Pillar 8 — Security Engineering: Covers DevSecOps, SAST, DAST, "
+            "SCA, secrets scanning, container scanning, threat modelling, and compliance gates. "
+            "Key roles: Security Engineer, AppSec Lead. "
+            "Tools: Snyk, Checkmarx, OWASP ZAP, Twistlock, Aqua Security."
         ),
         "metadata": {"source": "qode_pillars", "pillar": "8", "diagram_type": "process"},
     },
     {
         "id": "pillar_9",
         "text": (
-            "QODE Pillar 9 — Feedback & Continuous Improvement: Covers retrospectives, "
-            "lead-time/cycle-time metrics, DORA metrics collection, and improvement "
-            "backlog management. "
-            "Key roles: DevOps Lead, IT Lead, Scrum Master. "
-            "Tools: Jira, PowerBI, Tableau."
+            "QODE Pillar 9 — Service Reliability Engineering: Covers SRE practices, "
+            "monitoring, observability, distributed tracing, alerting, SLO/SLA tracking, "
+            "and incident response. "
+            "Key roles: SRE, Ops-Rel. "
+            "Tools: Prometheus, Grafana, ELK Stack, Datadog, Dynatrace, PagerDuty."
         ),
         "metadata": {"source": "qode_pillars", "pillar": "9", "diagram_type": "process"},
+    },
+    {
+        "id": "pillar_10",
+        "text": (
+            "QODE Pillar 10 — ServiceOps Engineering: Covers service operations, "
+            "incident management, change management, problem management, ITSM processes, "
+            "and continuous service improvement. "
+            "Key roles: ServiceOps Lead, IT Operations Manager, Change Manager. "
+            "Tools: ServiceNow, Jira Service Management, Opsgenie, xMatters."
+        ),
+        "metadata": {"source": "qode_pillars", "pillar": "10", "diagram_type": "process"},
+    },
+    {
+        "id": "pillar_11",
+        "text": (
+            "QODE Pillar 11 — Knowledge/Ontology Engineering: Covers knowledge management, "
+            "ontology design, documentation standards, knowledge graph construction, "
+            "and organisational learning. "
+            "Key roles: Knowledge Engineer, Documentation Lead, Ontologist. "
+            "Tools: Confluence, SharePoint, Neo4j, Protégé, Obsidian."
+        ),
+        "metadata": {"source": "qode_pillars", "pillar": "11", "diagram_type": "general"},
     },
 ]
 
@@ -144,10 +151,16 @@ import os as _os
 _EMBED_MODEL: str = _os.environ.get("EMBED_MODEL", "google/embeddinggemma-300m")
 
 
+# Lazy singleton — SentenceTransformer takes ~18s to load; create it once only.
+_EF_INSTANCE: embedding_functions.SentenceTransformerEmbeddingFunction | None = None
+
 def _get_embedding_function() -> embedding_functions.SentenceTransformerEmbeddingFunction:
-    return embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name=_EMBED_MODEL
-    )
+    global _EF_INSTANCE
+    if _EF_INSTANCE is None:
+        _EF_INSTANCE = embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name=_EMBED_MODEL
+        )
+    return _EF_INSTANCE
 
 
 # ---------------------------------------------------------------------------
@@ -155,14 +168,39 @@ def _get_embedding_function() -> embedding_functions.SentenceTransformerEmbeddin
 # ---------------------------------------------------------------------------
 COLLECTION_NAME = "qode_knowledge"
 
+_COLLECTION_CACHE: dict[str, chromadb.Collection] = {}
+
+_CHROMA_CORRUPTION_MARKERS = (
+    "error deserializing pickle file",
+    "unsupported opcode",
+    "error constructing hnsw segment reader",
+    "error creating hnsw segment reader",
+)
+
+
+def is_chroma_corruption_error(exc: Exception) -> bool:
+    """Return True when an exception indicates a corrupted Chroma/HNSW store."""
+    message = str(exc).lower()
+    return any(marker in message for marker in _CHROMA_CORRUPTION_MARKERS)
+
+
+def reset_chroma_store(chroma_path: str = "./chroma_db") -> None:
+    """Delete a local ChromaDB store directory and clear in-memory collection cache."""
+    _COLLECTION_CACHE.pop(chroma_path, None)
+    path = Path(chroma_path)
+    if path.exists():
+        shutil.rmtree(path)
+    logger.warning("Reset local ChromaDB store at %s due to corruption.", chroma_path)
 
 def _get_collection(chroma_path: str) -> chromadb.Collection:
-    client = chromadb.PersistentClient(path=chroma_path)
-    return client.get_or_create_collection(
-        name=COLLECTION_NAME,
-        embedding_function=_get_embedding_function(),
-        metadata={"hnsw:space": "cosine"},
-    )
+    if chroma_path not in _COLLECTION_CACHE:
+        client = chromadb.PersistentClient(path=chroma_path)
+        _COLLECTION_CACHE[chroma_path] = client.get_or_create_collection(
+            name=COLLECTION_NAME,
+            embedding_function=_get_embedding_function(),
+            metadata={"hnsw:space": "cosine"},
+        )
+    return _COLLECTION_CACHE[chroma_path]
 
 
 # ---------------------------------------------------------------------------
@@ -186,37 +224,6 @@ def _chunk_text(text: str, max_chars: int = 500, overlap: int = 50) -> list[str]
 # Format-specific readers
 # ---------------------------------------------------------------------------
 
-def _read_docx(file_path: Path) -> str:
-    """Extract plain text from a .docx file."""
-    try:
-        from docx import Document  # type: ignore[import]
-        doc = Document(str(file_path))
-        return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
-    except ImportError:
-        raise RuntimeError(
-            "python-docx is required for .docx ingestion. "
-            "Install with: pip install python-docx"
-        )
-    except Exception as exc:
-        raise RuntimeError(f"Failed to read DOCX '{file_path}': {exc}") from exc
-
-
-def _read_pdf(file_path: Path) -> str:
-    """Extract plain text from a .pdf file."""
-    try:
-        from pypdf import PdfReader  # type: ignore[import]
-        reader = PdfReader(str(file_path))
-        pages = [page.extract_text() or "" for page in reader.pages]
-        return "\n".join(pages)
-    except ImportError:
-        raise RuntimeError(
-            "pypdf is required for .pdf ingestion. "
-            "Install with: pip install pypdf"
-        )
-    except Exception as exc:
-        raise RuntimeError(f"Failed to read PDF '{file_path}': {exc}") from exc
-
-
 def _read_txt(file_path: Path) -> str:
     """Read plain text file."""
     try:
@@ -225,15 +232,57 @@ def _read_txt(file_path: Path) -> str:
         raise RuntimeError(f"Failed to read TXT '{file_path}': {exc}") from exc
 
 
+def _read_image(file_path: Path) -> str:
+    """Extract text from an image (.png/.jpg/.jpeg/.svg) via OCR.
+
+    SVG is read as raw XML/text. Raster formats are OCR'd with pytesseract
+    (requires the `tesseract` system binary). OCR is mandatory here — if
+    pytesseract or the tesseract binary is unavailable, ingestion fails
+    loudly rather than silently falling back to metadata-only text.
+    """
+    if file_path.suffix.lower() == ".svg":
+        return _read_txt(file_path)
+
+    try:
+        from PIL import Image
+    except ImportError:
+        raise RuntimeError(
+            "Pillow is required for image ingestion. Install with: pip install Pillow"
+        )
+    try:
+        import pytesseract
+    except ImportError:
+        raise RuntimeError(
+            "pytesseract is required for image OCR ingestion. "
+            "Install with: pip install pytesseract (and the tesseract system binary)."
+        )
+
+    try:
+        with Image.open(file_path) as img:
+            width, height = img.size
+            fmt = img.format or file_path.suffix.lstrip(".").upper()
+            ocr_text = pytesseract.image_to_string(img).strip()
+    except Exception as exc:
+        raise RuntimeError(f"Failed to OCR image '{file_path}': {exc}") from exc
+
+    if not ocr_text:
+        raise RuntimeError(
+            f"OCR extracted no text from image '{file_path.name}' ({fmt}, {width}x{height})."
+        )
+    return f"Image '{file_path.name}' ({fmt}, {width}x{height}).\n{ocr_text}"
+
+
 def _read_file(file_path: Path) -> str:
     """Dispatch to the correct reader based on file extension."""
     ext = file_path.suffix.lower()
     readers = {
-        ".docx": _read_docx,
-        ".pdf": _read_pdf,
         ".txt": _read_txt,
         ".py": _read_txt,
         ".md": _read_txt,
+        ".png": _read_image,
+        ".jpg": _read_image,
+        ".jpeg": _read_image,
+        ".svg": _read_image,
     }
     reader = readers.get(ext)
     if reader is None:
@@ -365,7 +414,7 @@ def ingest_all(
         chroma_path:       ChromaDB persistence directory.
         repo_root:         Repo root directory (defaults to parent of this file).
         graph_path:        Destination for the QODE knowledge graph JSON.
-        extra_file_paths:  Additional files to ingest (.docx / .pdf / .txt).
+        extra_file_paths:  Additional files to ingest (.txt / .png / .jpg / .svg).
 
     Returns:
         Total number of documents upserted.
@@ -398,7 +447,7 @@ def ingest_all(
         except Exception as exc:
             logger.warning("Excel ingestion skipped: %s", exc)
 
-    # 5. Extra files (.docx / .pdf / .txt)
+    # 5. Extra files (.txt / .png / .jpg / .svg)
     for fpath in (extra_file_paths or []):
         path = Path(fpath)
         ext = path.suffix.lower().lstrip(".")
