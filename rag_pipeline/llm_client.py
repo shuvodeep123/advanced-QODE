@@ -33,7 +33,8 @@ from openai import (
 import instructor
 from pydantic import BaseModel
 
-from .token_counter import record_call, estimate_tokens
+from .token_counter import record_call, estimate_tokens, get_usage
+from .token_cache import get as cache_get, put as cache_put
 
 # API latency thresholds (milliseconds)
 _LATENCY_WARNING_THRESHOLD: float = float(os.environ.get("LLM_LATENCY_WARNING_THRESHOLD", "30000"))
@@ -194,6 +195,25 @@ def set_active_model(model: str) -> None:
     if providers:
         providers[0].model = model
     os.environ["HF_MODEL"] = model
+
+
+def get_last_call_usage() -> dict:
+    """Return token counts + cost for the most recent LLM call.
+
+    Reads from the token_counter module which is updated inside chat() / chat_stream().
+    Safe to call immediately after chat() returns.
+
+    Returns:
+        dict with keys: prompt_tokens, completion_tokens, total_tokens,
+        cost_inr, model (last model used from provider chain).
+    """
+    snap = get_usage()
+    return {
+        "prompt_tokens": snap.last_call_prompt,
+        "completion_tokens": snap.last_call_completion,
+        "total_tokens": snap.last_call_total,
+        "cost_inr": snap.last_call_cost_inr,
+    }
 
 
 def get_available_models() -> list[str]:
@@ -559,36 +579,34 @@ def chat(messages: list[dict], model: str = MODEL) -> str:
     Raises RuntimeError if API latency exceeds critical threshold.
     """
     if _HF_USE_LOCAL:
+        cached = cache_get(messages, _HF_LOCAL_MODEL)
+        if cached is not None:
+            return cached
         reply = _local_chat(messages)
-        # Local models don't report usage — estimate for the token counter
-        record_call(
-            prompt_tokens=estimate_tokens(messages, _HF_LOCAL_MODEL),
-            completion_tokens=estimate_tokens(
-                [{"role": "assistant", "content": reply}], _HF_LOCAL_MODEL
-            ),
-            model=_HF_LOCAL_MODEL,
-        )
+        pt = estimate_tokens(messages, _HF_LOCAL_MODEL)
+        ct = estimate_tokens([{"role": "assistant", "content": reply}], _HF_LOCAL_MODEL)
+        record_call(prompt_tokens=pt, completion_tokens=ct, model=_HF_LOCAL_MODEL)
+        cache_put(messages, _HF_LOCAL_MODEL, reply, pt, ct)
         return reply
+
+    active_model = _get_providers()[0].model
+    cached = cache_get(messages, active_model)
+    if cached is not None:
+        return cached
 
     response, provider, latency_ms = _call_with_fallback(messages)
     # Record exact usage from the response object (always present for non-streaming)
+    reply = response.choices[0].message.content or ""
     usage = getattr(response, "usage", None)
     if usage:
-        record_call(
-            prompt_tokens=usage.prompt_tokens,
-            completion_tokens=usage.completion_tokens,
-            model=provider.model,
-        )
+        pt, ct = usage.prompt_tokens, usage.completion_tokens
+        record_call(prompt_tokens=pt, completion_tokens=ct, model=provider.model)
     else:
-        reply = response.choices[0].message.content or ""
-        record_call(
-            prompt_tokens=estimate_tokens(messages, provider.model),
-            completion_tokens=estimate_tokens(
-                [{"role": "assistant", "content": reply}], provider.model
-            ),
-            model=provider.model,
-        )
-    return response.choices[0].message.content
+        pt = estimate_tokens(messages, provider.model)
+        ct = estimate_tokens([{"role": "assistant", "content": reply}], provider.model)
+        record_call(prompt_tokens=pt, completion_tokens=ct, model=provider.model)
+    cache_put(messages, provider.model, reply, pt, ct)
+    return reply
 
 
 def chat_stream(messages: list[dict], model: str = MODEL) -> Iterator[str]:
