@@ -55,6 +55,21 @@ logger = logging.getLogger(__name__)
 DEFAULT_BUDGET: int = int(os.environ.get("TOKEN_BUDGET", "100000"))
 
 # ---------------------------------------------------------------------------
+# Cost tracking — INR per 1K tokens
+# USD_TO_INR: override via LLM_USD_TO_INR in .env (default 84.0)
+# Per-1K-token USD cost: override via LLM_COST_PER_1K_TOKENS_USD (default 0.005)
+# Derived INR rate = USD_rate × USD_TO_INR
+# ---------------------------------------------------------------------------
+_USD_TO_INR: float = float(os.environ.get("LLM_USD_TO_INR", "84.0"))
+_COST_PER_1K_USD: float = float(os.environ.get("LLM_COST_PER_1K_TOKENS_USD", "0.005"))
+COST_PER_1K_INR: float = _COST_PER_1K_USD * _USD_TO_INR  # ≈ 0.42 INR/1K tokens
+
+
+def tokens_to_inr(tokens: int) -> float:
+    """Convert a token count to estimated cost in INR."""
+    return round(tokens / 1000 * COST_PER_1K_INR, 6)
+
+# ---------------------------------------------------------------------------
 # Persistent storage for token usage across CLI sessions
 # ---------------------------------------------------------------------------
 _STORAGE_DIR = Path.home() / ".qode" / "token_usage"
@@ -76,12 +91,14 @@ class TokenUsage:
     completion_tokens: int = 0
     total_tokens:      int = 0
     call_count:        int = 0
+    total_cost_inr:    float = 0.0
     # per-model breakdown  {model_name: total_tokens}
     by_model:          dict[str, int] = field(default_factory=dict)
     # last single-call counts (reset on each record_call)
-    last_call_prompt:     int = 0
-    last_call_completion: int = 0
-    last_call_total:      int = 0
+    last_call_prompt:      int = 0
+    last_call_completion:  int = 0
+    last_call_total:       int = 0
+    last_call_cost_inr:    float = 0.0
 
     def pct_used(self, budget: int = DEFAULT_BUDGET) -> float:
         """Return percentage of budget consumed (0.0 – 100.0)."""
@@ -96,6 +113,7 @@ class TokenUsage:
             "completion_tokens": self.completion_tokens,
             "total_tokens": self.total_tokens,
             "call_count": self.call_count,
+            "total_cost_inr": self.total_cost_inr,
             "by_model": self.by_model,
         }
 
@@ -107,6 +125,7 @@ class TokenUsage:
             completion_tokens=data.get("completion_tokens", 0),
             total_tokens=data.get("total_tokens", 0),
             call_count=data.get("call_count", 0),
+            total_cost_inr=data.get("total_cost_inr", 0.0),
             by_model=data.get("by_model", {}),
         )
 
@@ -172,10 +191,12 @@ def get_usage() -> TokenUsage:
             completion_tokens=_usage.completion_tokens,
             total_tokens=_usage.total_tokens,
             call_count=_usage.call_count,
+            total_cost_inr=_usage.total_cost_inr,
             by_model=dict(_usage.by_model),
             last_call_prompt=_usage.last_call_prompt,
             last_call_completion=_usage.last_call_completion,
             last_call_total=_usage.last_call_total,
+            last_call_cost_inr=_usage.last_call_cost_inr,
         )
 
 
@@ -200,6 +221,7 @@ def record_call(
     # Treat None (returned by some endpoints) as 0 to avoid TypeError
     pt = int(prompt_tokens or 0)
     ct = int(completion_tokens or 0)
+    call_cost_inr = tokens_to_inr(pt + ct)
     timestamp = datetime.utcnow().isoformat()
 
     with _lock:
@@ -207,25 +229,29 @@ def record_call(
         _usage.completion_tokens += ct
         _usage.total_tokens      += pt + ct
         _usage.call_count        += 1
+        _usage.total_cost_inr    += call_cost_inr
         _usage.by_model[model]    = (
             _usage.by_model.get(model, 0) + pt + ct
         )
         _usage.last_call_prompt     = pt
         _usage.last_call_completion = ct
         _usage.last_call_total      = pt + ct
+        _usage.last_call_cost_inr   = call_cost_inr
         logger.debug(
-            "Token usage recorded — prompt=%d completion=%d total=%d model=%s (session=%d)",
-            pt, ct, pt + ct, model, _usage.total_tokens,
+            "Token usage recorded — prompt=%d completion=%d total=%d cost=₹%.4f model=%s (session=%d)",
+            pt, ct, pt + ct, call_cost_inr, model, _usage.total_tokens,
         )
         snapshot = TokenUsage(
             prompt_tokens=_usage.prompt_tokens,
             completion_tokens=_usage.completion_tokens,
             total_tokens=_usage.total_tokens,
             call_count=_usage.call_count,
+            total_cost_inr=_usage.total_cost_inr,
             by_model=dict(_usage.by_model),
             last_call_prompt=_usage.last_call_prompt,
             last_call_completion=_usage.last_call_completion,
             last_call_total=_usage.last_call_total,
+            last_call_cost_inr=_usage.last_call_cost_inr,
         )
 
     # Add to history with timestamp
@@ -234,6 +260,7 @@ def record_call(
         "prompt_tokens": pt,
         "completion_tokens": ct,
         "total_tokens": pt + ct,
+        "cost_inr": call_cost_inr,
         "model": model,
     })
 
@@ -270,10 +297,12 @@ def reset() -> None:
         _usage.completion_tokens = 0
         _usage.total_tokens      = 0
         _usage.call_count        = 0
+        _usage.total_cost_inr    = 0.0
         _usage.by_model.clear()
         _usage.last_call_prompt     = 0
         _usage.last_call_completion = 0
         _usage.last_call_total      = 0
+        _usage.last_call_cost_inr   = 0.0
         _history = []
     _save_to_disk(_usage)
     _save_history(_history)
