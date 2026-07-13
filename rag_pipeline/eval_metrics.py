@@ -11,19 +11,6 @@ Two evaluation tracks:
      - Evaluates propensity scores (Practice, Technology, Collaboration)
      - Maps to people patterns and readiness levels
      - Run before sending context to LLM
-
-Public API
-----------
-  RAG Scoring:
-    score_response(query, answer, context) -> float
-
-  QODE Evaluation:
-    evaluate_graph_context(graph_data) -> dict[str, EvaluationResult]
-    validate_context_before_llm(graph_data) -> bool
-    evaluate_propensities(...) -> EvaluationResult
-    evaluate_people_patterns(pattern_key) -> EvaluationResult
-    evaluate_readiness_score(score) -> EvaluationResult
-    evaluate_engineering_practices(...) -> EvaluationResult
 """
 
 from __future__ import annotations
