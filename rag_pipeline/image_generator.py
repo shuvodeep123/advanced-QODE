@@ -1,7 +1,19 @@
 """
-This is an AI-powered image generation code which Generates context-aware images for gap analysis and narrative reports using
-RouteLLM gateway.
+image_generator.py — AI-powered image generation for business reports.
+
+Generates context-aware images for gap analysis and narrative reports using
+RouteLLM gateway (Midjourney, DALL-E 3, GPT-4V image edit).
+
+Usage:
+    from rag_pipeline.image_generator import generate_report_images
+    images = generate_report_images(
+        narrative_text="Gap analysis for Process Network...",
+        intent="process",
+        report_type="gap_analysis"
+    )
+    # Returns: [{"url": "...", "prompt": "...", "model": "midjourney"}, ...]
 """
+
 from __future__ import annotations
 
 import logging
@@ -11,6 +23,8 @@ import time
 from typing import Optional
 
 import requests
+
+from .langfuse_tracer import get_tracer
 
 logger = logging.getLogger(__name__)
 
@@ -177,79 +191,114 @@ def generate_report_images(
     model = _IMAGE_MODELS.get(intent, _IMAGE_MODELS["general"])
     results = []
 
+    tracer = get_tracer()
+    endpoint = f"{_ROUTELLM_BASE_URL}/chat/completions"
+
     for i, concept in enumerate(concepts[:max_images], 1):
-        try:
-            prompt = _build_image_prompt(narrative_text, intent, report_type, concept)
+        prompt = _build_image_prompt(narrative_text, intent, report_type, concept)
+        logger.info(
+            "IMAGE_GENERATION: Generating image %d/%d via %s (concept: %s)",
+            i, len(concepts), model, concept[:50],
+        )
 
-            logger.info(
-                "IMAGE_GENERATION: Generating image %d/%d via %s (concept: %s)",
-                i, len(concepts), model, concept[:50],
-            )
-
-            # Call RouteLLM with image modality
-            response = requests.post(
-                f"{_ROUTELLM_BASE_URL}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {_ROUTELLM_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "modalities": ["image"],
-                    "temperature": 0.7,  # Slightly creative for visuals
-                    "max_tokens": 1024,
-                },
-                timeout=_IMAGE_TIMEOUT,
-            )
-
-            if response.status_code != 200:
-                logger.warning(
-                    "IMAGE_GENERATION: HTTP %d from %s: %s",
-                    response.status_code, model, response.text[:200],
+        with tracer.trace(
+            "routellm_image_generation",
+            input={
+                "endpoint": endpoint,
+                "model": model,
+                "concept_preview": concept[:80],
+                "intent": intent,
+                "report_type": report_type,
+                "image_index": i,
+            },
+        ) as span:
+            try:
+                _t0 = time.monotonic()
+                response = requests.post(
+                    endpoint,
+                    headers={
+                        "Authorization": f"Bearer {_ROUTELLM_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "modalities": ["image"],
+                        "temperature": 0.7,
+                        "max_tokens": 1024,
+                    },
+                    timeout=_IMAGE_TIMEOUT,
                 )
-                continue
+                _latency_ms = round((time.monotonic() - _t0) * 1000, 1)
 
-            data = response.json()
-            if data.get("error"):
-                logger.warning(
-                    "IMAGE_GENERATION: %s error: %s",
-                    model, data["error"].get("message", str(data["error"]))[:200],
-                )
-                continue
+                if response.status_code != 200:
+                    logger.warning(
+                        "IMAGE_GENERATION: HTTP %d from %s: %s",
+                        response.status_code, model, response.text[:200],
+                    )
+                    span.set_output({
+                        "status_code": response.status_code,
+                        "latency_ms": _latency_ms,
+                        "images_returned": 0,
+                        "success": False,
+                    })
+                    span.set_error(f"HTTP {response.status_code}: {response.text[:200]}")
+                    continue
 
-            # Extract image URLs from response
-            for choice in data.get("choices", []):
-                msg = choice.get("message", {})
-                content = msg.get("content", [])
-                if isinstance(content, str):
-                    content = [{"type": "text", "text": content}]
+                data = response.json()
+                if data.get("error"):
+                    _err_msg = data["error"].get("message", str(data["error"]))[:200]
+                    logger.warning("IMAGE_GENERATION: %s error: %s", model, _err_msg)
+                    span.set_output({
+                        "status_code": response.status_code,
+                        "latency_ms": _latency_ms,
+                        "images_returned": 0,
+                        "success": False,
+                        "api_error": _err_msg,
+                    })
+                    span.set_error(_err_msg)
+                    continue
 
-                for item in content:
-                    if item.get("type") == "image_url":
-                        url = item.get("image_url", {}).get("url")
-                        if url:
-                            results.append(
-                                {
+                # Extract image URLs from response
+                _images_this_call = 0
+                for choice in data.get("choices", []):
+                    msg = choice.get("message", {})
+                    content = msg.get("content", [])
+                    if isinstance(content, str):
+                        content = [{"type": "text", "text": content}]
+
+                    for item in content:
+                        if item.get("type") == "image_url":
+                            url = item.get("image_url", {}).get("url")
+                            if url:
+                                results.append({
                                     "url": url,
                                     "prompt": prompt,
                                     "model": model,
                                     "concept": concept,
-                                }
-                            )
-                            logger.info(
-                                "IMAGE_GENERATION: Image generated via %s (%s)",
-                                model, concept[:40],
-                            )
+                                })
+                                _images_this_call += 1
+                                logger.info(
+                                    "IMAGE_GENERATION: Image generated via %s (%s)",
+                                    model, concept[:40],
+                                )
 
-            # Respect rate limits
-            if i < len(concepts):
-                time.sleep(2)
+                span.set_output({
+                    "status_code": response.status_code,
+                    "latency_ms": _latency_ms,
+                    "images_returned": _images_this_call,
+                    "success": True,
+                })
 
-        except requests.Timeout:
-            logger.warning("IMAGE_GENERATION: Timeout on image %d/%d", i, len(concepts))
-        except Exception as e:
-            logger.warning("IMAGE_GENERATION: Failed on concept '%s': %s", concept[:40], e)
+                if i < len(concepts):
+                    time.sleep(2)
+
+            except requests.Timeout:
+                logger.warning("IMAGE_GENERATION: Timeout on image %d/%d", i, len(concepts))
+                span.set_error(f"Timeout after {_IMAGE_TIMEOUT}s")
+            except Exception as e:
+                logger.warning("IMAGE_GENERATION: Failed on concept '%s': %s", concept[:40], e)
+                span.set_error(str(e))
 
     logger.info("IMAGE_GENERATION: Generated %d images for %s report", len(results), report_type)
     return results
@@ -287,6 +336,7 @@ def embed_images_in_document(
             # Add appendix heading
             doc.add_heading("Generated Visualizations", level=2)
 
+        tracer = get_tracer()
         for img_data in images:
             try:
                 url = img_data["url"]
@@ -294,7 +344,22 @@ def embed_images_in_document(
                 model = img_data.get("model", "")
 
                 # Download image from URL
-                img_response = requests.get(url, timeout=30)
+                with tracer.trace(
+                    "image_download",
+                    input={"url_preview": url[:80], "concept": concept[:60], "model": model},
+                ) as dl_span:
+                    _t0 = time.monotonic()
+                    img_response = requests.get(url, timeout=30)
+                    _latency_ms = round((time.monotonic() - _t0) * 1000, 1)
+                    dl_span.set_output({
+                        "status_code": img_response.status_code,
+                        "latency_ms": _latency_ms,
+                        "bytes": len(img_response.content) if img_response.status_code == 200 else 0,
+                        "success": img_response.status_code == 200,
+                    })
+                    if img_response.status_code != 200:
+                        dl_span.set_error(f"HTTP {img_response.status_code}")
+
                 if img_response.status_code != 200:
                     logger.warning("Failed to download image from %s", url[:80])
                     continue
