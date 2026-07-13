@@ -1,5 +1,5 @@
 """
-This code will create In-memory LRU cache for SentenceTransformer embeddings.
+embedding_cache.py — In-memory LRU cache for SentenceTransformer embeddings.
 
 Caches embedding computations to avoid recomputing the same text embeddings
 across multiple retrieval calls within a session.
@@ -50,7 +50,13 @@ def _cached_embed_single(text: str, model: str, embedding_fn) -> tuple:
     Returns:
         Tuple of embedding array (converted to tuple for hashability)
     """
-    embeddings = embedding_fn([text])
+    try:
+        embeddings = embedding_fn([text])
+    except TypeError as e:
+        if "Unsupported input type" in str(e) or "Expected one of" in str(e):
+            embeddings = embedding_fn(text)
+        else:
+            raise
     if isinstance(embeddings, list) and len(embeddings) > 0:
         return tuple(embeddings[0])
     return ()
@@ -100,6 +106,23 @@ def get_cached_embeddings(
                 cached_results.append((idx, emb))
                 # Also populate the single-text cache for future calls
                 _cached_embed_single(texts_to_compute[i], model, embedding_fn)
+        except TypeError as e:
+            if "Unsupported input type" in str(e) or "Expected one of" in str(e):
+                logger.debug("Embedding function type mismatch, retrying individually: %s", e)
+                cached_results = []
+                for text in texts:
+                    try:
+                        emb_result = embedding_fn(text)
+                        if isinstance(emb_result, list):
+                            cached_results.append((texts.index(text), emb_result[0]))
+                        else:
+                            cached_results.append((texts.index(text), emb_result))
+                    except Exception as inner_e:
+                        logger.warning("Individual embedding failed: %s", inner_e)
+                        return []
+            else:
+                logger.warning("Embedding computation failed: %s", e)
+                return []
         except Exception as e:
             logger.warning("Embedding computation failed: %s", e)
             return []
