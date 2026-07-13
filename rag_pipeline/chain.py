@@ -32,6 +32,7 @@ from .graph_retriever import get_retriever
 from .diagram_executor import run as run_diagram, get_dot_path, ASIS_DIRS, TOBE_DIRS, dot_to_drawio, dot_to_plantuml, dot_to_mermaid, _validate_mermaid
 from .principles_engine import PrinciplesEngine, extract_principle_context
 from .langfuse_tracer import get_tracer
+from . import llm_client as llm_client_mod
 from .diagram_schema import DiagramAsIs, DiagramToBe
 from .image_generator import generate_report_images
 from .guardrails_config import (
@@ -295,15 +296,22 @@ def _node_route(state: AgentState) -> AgentState:
     ``_node_principles`` knows to produce an analysis of the current state
     rather than a To-Be diagram.
     """
+    tracer = get_tracer()
     query = state["user_message"]
-    state["intent"] = detect_intent(query)
-    state["is_asis"] = detect_asis_request(query)
-    state["principle_ctx"] = extract_principle_context(query)
-    state["is_gap_analysis"] = detect_gap_analysis_request(query)
-    state["gap_items"] = _extract_removed_items(query) if state["is_gap_analysis"] else []
-    # Gap analysis always takes the LLM path
-    if state["is_gap_analysis"]:
-        state["is_asis"] = False
+    with tracer.trace("intent_routing", input={"query_preview": query[:120]}) as span:
+        state["intent"] = detect_intent(query)
+        state["is_asis"] = detect_asis_request(query)
+        state["principle_ctx"] = extract_principle_context(query)
+        state["is_gap_analysis"] = detect_gap_analysis_request(query)
+        state["gap_items"] = _extract_removed_items(query) if state["is_gap_analysis"] else []
+        if state["is_gap_analysis"]:
+            state["is_asis"] = False
+        span.set_output({
+            "intent": state["intent"],
+            "is_asis": state["is_asis"],
+            "is_gap_analysis": state["is_gap_analysis"],
+            "principle": state["principle_ctx"].get("principle") if state.get("principle_ctx") else None,
+        })
     return state
 
 
@@ -332,7 +340,7 @@ def _node_load_asis(state: AgentState) -> AgentState:
         return state
 
     tracer = get_tracer()
-    with tracer.trace("load_asis_ground_truth", input={"intent": intent}):
+    with tracer.trace("load_asis_ground_truth", input={"intent": intent}) as span:
         diagram_path: str | None = None
         try:
             diagram_path = run_diagram(
@@ -355,6 +363,11 @@ def _node_load_asis(state: AgentState) -> AgentState:
             state["asis_diagram_data"] = dot_file.read_text(encoding="utf-8", errors="replace")
             logger.info("As-Is ground truth loaded (%d chars) for intent '%s'.",
                         len(state["asis_diagram_data"]), intent)
+            span.set_output({
+                "asis_loaded": True,
+                "asis_chars": len(state["asis_diagram_data"]),
+                "diagram_path": diagram_path,
+            })
         else:
             state["asis_diagram_data"] = None
             logger.warning(
@@ -362,6 +375,7 @@ def _node_load_asis(state: AgentState) -> AgentState:
                 "LLM will lack questionnaire ground truth — responses may be less accurate.",
                 intent,
             )
+            span.set_output({"asis_loaded": False, "diagram_path": diagram_path})
 
     return state
 
@@ -491,7 +505,7 @@ def _node_principles(state: AgentState) -> AgentState:
     tracer = get_tracer()
 
     # ── Retrieval ─────────────────────────────────────────────────────────
-    with tracer.trace("graph_rag_retrieval", input={"intent": intent, "query": state["user_message"]}):
+    with tracer.trace("graph_rag_retrieval", input={"intent": intent, "query": state["user_message"]}) as _rspan:
         retriever = get_retriever(
             graph_path=state["graph_path"],
             chroma_path=state["chroma_path"],
@@ -503,46 +517,65 @@ def _node_principles(state: AgentState) -> AgentState:
             graph_hops=2,
         )
         state["context_chunks"] = chunks
+        _graph_chunks = sum(1 for c in chunks if c.get("source") == "graph")
+        _vec_chunks   = sum(1 for c in chunks if c.get("source") == "vector")
+        _rspan.set_output({
+            "total_chunks": len(chunks),
+            "graph_chunks": _graph_chunks,
+            "vector_chunks": _vec_chunks,
+        })
 
     # ── Validate context quality against QODE propensities + readiness ──────
     from . import eval_metrics
     import json
     graph_data = {}
-    try:
-        with open(state["graph_path"], "r") as f:
-            graph_data = json.load(f)
-    except Exception as e:
-        logger.warning("Could not load graph for evaluation: %s", e)
+    with tracer.trace("context_quality_check", input={"intent": intent, "chunk_count": len(chunks)}) as span:
+        try:
+            with open(state["graph_path"], "r") as f:
+                graph_data = json.load(f)
+        except Exception as e:
+            logger.warning("Could not load graph for evaluation: %s", e)
 
-    if graph_data:
-        eval_valid = eval_metrics.validate_context_before_llm(graph_data)
-        node_count  = len(graph_data.get("nodes", graph_data.get("entities", [])))
-        edge_count  = len(graph_data.get("edges", graph_data.get("relationships", [])))
-        chunk_count = len(chunks)
-        asis_present = bool(state.get("asis_diagram_data"))
-        logger.info(
-            "[PRE-LLM DATA CHECK] graph_nodes=%d  graph_edges=%d  "
-            "retrieval_chunks=%d  asis_loaded=%s  intent=%s  eval_gate=%s",
-            node_count, edge_count, chunk_count, asis_present,
-            state.get("intent", "general"),
-            "PASS" if eval_valid else "WARN",
-        )
-        if not eval_valid:
-            logger.warning("[PRE-LLM DATA CHECK] Graph context quality issues — proceeding with degraded context")
-    else:
-        logger.warning(
-            "[PRE-LLM DATA CHECK] graph_nodes=0  graph_edges=0  "
-            "retrieval_chunks=%d  asis_loaded=%s  intent=%s  eval_gate=SKIP (no graph)",
-            len(chunks), bool(state.get("asis_diagram_data")), state.get("intent", "general"),
-        )
+        if graph_data:
+            eval_valid = eval_metrics.validate_context_before_llm(graph_data)
+            node_count  = len(graph_data.get("nodes", graph_data.get("entities", [])))
+            edge_count  = len(graph_data.get("edges", graph_data.get("relationships", [])))
+            chunk_count = len(chunks)
+            asis_present = bool(state.get("asis_diagram_data"))
+            logger.info(
+                "[PRE-LLM DATA CHECK] graph_nodes=%d  graph_edges=%d  "
+                "retrieval_chunks=%d  asis_loaded=%s  intent=%s  eval_gate=%s",
+                node_count, edge_count, chunk_count, asis_present,
+                state.get("intent", "general"),
+                "PASS" if eval_valid else "WARN",
+            )
+            if not eval_valid:
+                logger.warning("[PRE-LLM DATA CHECK] Graph context quality issues — proceeding with degraded context")
+            span.set_output({
+                "graph_nodes": node_count,
+                "graph_edges": edge_count,
+                "retrieval_chunks": chunk_count,
+                "asis_present": asis_present,
+                "eval_gate": "PASS" if eval_valid else "WARN",
+            })
+        else:
+            logger.warning(
+                "[PRE-LLM DATA CHECK] graph_nodes=0  graph_edges=0  "
+                "retrieval_chunks=%d  asis_loaded=%s  intent=%s  eval_gate=SKIP (no graph)",
+                len(chunks), bool(state.get("asis_diagram_data")), state.get("intent", "general"),
+            )
+            span.set_output({"graph_nodes": 0, "graph_edges": 0,
+                             "retrieval_chunks": len(chunks), "eval_gate": "SKIP"})
 
     # ── Validate grounding before LLM call ──────────────────────────────────
-    is_grounded, reason = _validate_grounding(
-        chunks,
-        state.get("asis_diagram_data"),
-        state.get("is_asis", False),
-        state.get("is_gap_analysis", False),
-    )
+    with tracer.trace("grounding_check", input={"intent": intent, "is_asis": state.get("is_asis"), "is_gap": state.get("is_gap_analysis")}) as span:
+        is_grounded, reason = _validate_grounding(
+            chunks,
+            state.get("asis_diagram_data"),
+            state.get("is_asis", False),
+            state.get("is_gap_analysis", False),
+        )
+        span.set_output({"is_grounded": is_grounded, "reason": reason})
     if not is_grounded:
         logger.warning("Query not grounded: %s", reason)
         state["reply_text"] = f"Cannot process request: {reason}\n\nPlease provide a QODE questionnaire or ask about existing documented practices."
@@ -568,9 +601,10 @@ def _node_principles(state: AgentState) -> AgentState:
     )
 
     # ── LLM call with Langfuse tracing ────────────────────────────────────
+    _active_model = llm_client.get_active_model()
     with tracer.trace(
         "llm_generation",
-        input={"messages_count": len(messages), "intent": intent},
+        input={"messages_count": len(messages), "intent": intent, "model": _active_model},
     ) as span:
         try:
             if state.get("stream"):
@@ -583,6 +617,16 @@ def _node_principles(state: AgentState) -> AgentState:
                 state["reply_text"] = clean
                 state["thinking_text"] = thinking
                 state["reply_stream"] = None
+            # Attach token usage + cost to span (non-streaming only; streaming tokens
+            # arrive asynchronously so we capture what's available immediately)
+            if not state.get("stream"):
+                _u = llm_client_mod.get_last_call_usage()
+                span.set_usage(
+                    model=_active_model,
+                    prompt_tokens=_u["prompt_tokens"],
+                    completion_tokens=_u["completion_tokens"],
+                    cost_inr=_u["cost_inr"],
+                )
             span.set_output({"status": "ok"})
         except RuntimeError as exc:
             # Latency or critical errors — user should switch models
@@ -670,127 +714,132 @@ def _node_principles(state: AgentState) -> AgentState:
     )
 
     if should_extract:
-        reply_text  = state["reply_text"]
-        intent_key  = state.get("intent", "general")
-        stem_suffix = "_gap" if is_gap else ""
-        base_name   = f"{intent_key}{stem_suffix}"
+        with tracer.trace(
+            "diagram_extraction",
+            input={"intent": state.get("intent"), "is_asis": is_asis_req, "is_gap": is_gap},
+        ) as dspan:
+            reply_text  = state["reply_text"]
+            intent_key  = state.get("intent", "general")
+            stem_suffix = "_gap" if is_gap else ""
+            base_name   = f"{intent_key}{stem_suffix}"
 
-        # Choose output directories
-        out_dirs  = ASIS_DIRS if is_asis_req else TOBE_DIRS
-        dir_label = "As-Is" if is_asis_req else ("Gap" if is_gap else "To-Be")
+            out_dirs  = ASIS_DIRS if is_asis_req else TOBE_DIRS
+            dir_label = "As-Is" if is_asis_req else ("Gap" if is_gap else "To-Be")
+            dot_ref   = get_dot_path(intent_key) if intent_key != "general" else None
 
-        dot_ref   = get_dot_path(intent_key) if intent_key != "general" else None
+            _extracted = {"mermaid": False, "dot": False, "struct_nodes": 0, "struct_edges": 0}
 
-        # ── Validate diagram structure (optional JSON) ─────────────────────
-        diagram_struct = _try_extract_diagram_json(
-            reply_text, intent_key, is_tobe=not is_asis_req and not is_gap
-        )
-        if diagram_struct:
-            logger.info("%s diagram structure validated: %d nodes, %d edges",
-                        dir_label, len(diagram_struct.nodes), len(diagram_struct.edges))
+            # ── Validate diagram structure (optional JSON) ─────────────────────
+            diagram_struct = _try_extract_diagram_json(
+                reply_text, intent_key, is_tobe=not is_asis_req and not is_gap
+            )
+            if diagram_struct:
+                _extracted["struct_nodes"] = len(diagram_struct.nodes)
+                _extracted["struct_edges"] = len(diagram_struct.edges)
+                logger.info("%s diagram structure validated: %d nodes, %d edges",
+                            dir_label, len(diagram_struct.nodes), len(diagram_struct.edges))
 
-        # ── Mermaid → <dir>/Mermaid/ ────────────────────────────────────
-        mermaid_src = _extract_mermaid(reply_text)
-        if mermaid_src:
-            mmd_out = out_dirs["mermaid"] / f"{base_name}.mmd"
-            try:
-                mmd_out.write_text(mermaid_src, encoding="utf-8")
-                state["diagram_path"] = str(mmd_out)
-                state["diagram_type"] = intent_key
-                logger.info("%s Mermaid saved: %s (%d chars)", dir_label, mmd_out, len(mermaid_src))
-                # Legacy root copy
-                if dot_ref:
+            # ── Mermaid → <dir>/Mermaid/ ────────────────────────────────────
+            mermaid_src = _extract_mermaid(reply_text)
+            if mermaid_src:
+                mmd_out = out_dirs["mermaid"] / f"{base_name}.mmd"
+                try:
+                    mmd_out.write_text(mermaid_src, encoding="utf-8")
+                    state["diagram_path"] = str(mmd_out)
+                    state["diagram_type"] = intent_key
+                    _extracted["mermaid"] = True
+                    logger.info("%s Mermaid saved: %s (%d chars)", dir_label, mmd_out, len(mermaid_src))
+                    if dot_ref:
+                        try:
+                            legacy = dot_ref.parent / f"{dot_ref.stem}{'_gap' if is_gap else ('_asis' if is_asis_req else '_tobe')}.mmd"
+                            legacy.write_text(mermaid_src, encoding="utf-8")
+                        except Exception:
+                            pass
+                except Exception as e:
+                    logger.warning("Could not save %s Mermaid: %s", dir_label, e)
+            else:
+                logger.warning("LLM reply contained no Mermaid block for '%s' %s request.", intent_key, dir_label)
+
+            # ── DOT → <dir>/DotGraph/ ────────────────────────────────────────
+            dot_src = _extract_dot(reply_text)
+            if dot_src:
+                if not is_asis_req and not is_gap:
+                    state["tobe_diagram_data"] = dot_src
+                    logger.info("To-Be diagram data persisted for session (%d chars)", len(dot_src))
+
+                dot_out = out_dirs["dot"] / f"{base_name}.dot"
+                try:
+                    dot_out.write_text(dot_src, encoding="utf-8")
+                    _extracted["dot"] = True
+                    logger.info("%s DOT saved: %s (%d chars)", dir_label, dot_out, len(dot_src))
+
                     try:
-                        legacy = dot_ref.parent / f"{dot_ref.stem}{'_gap' if is_gap else ('_asis' if is_asis_req else '_tobe')}.mmd"
-                        legacy.write_text(mermaid_src, encoding="utf-8")
-                    except Exception:
-                        pass
-            except Exception as e:
-                logger.warning("Could not save %s Mermaid: %s", dir_label, e)
-        else:
-            logger.warning("LLM reply contained no Mermaid block for '%s' %s request.", intent_key, dir_label)
-
-        # ── DOT → <dir>/DotGraph/ ────────────────────────────────────────
-        dot_src = _extract_dot(reply_text)
-        if dot_src:
-            # Preserve To-Be diagram data for multi-turn follow-ups
-            if not is_asis_req and not is_gap:
-                state["tobe_diagram_data"] = dot_src
-                logger.info("To-Be diagram data persisted for session (%d chars)", len(dot_src))
-
-            dot_out = out_dirs["dot"] / f"{base_name}.dot"
-            try:
-                dot_out.write_text(dot_src, encoding="utf-8")
-                logger.info("%s DOT saved: %s (%d chars)", dir_label, dot_out, len(dot_src))
-
-                # ── Convert DOT → Mermaid for UI display ──────────────────
-                try:
-                    mmd_text = dot_to_mermaid(dot_src, intent_key)
-                    is_valid, err_msg = _validate_mermaid(mmd_text)
-                    if not is_valid:
-                        logger.warning("Mermaid validation failed for %s: %s", dir_label, err_msg)
+                        mmd_text = dot_to_mermaid(dot_src, intent_key)
+                        is_valid, err_msg = _validate_mermaid(mmd_text)
+                        if not is_valid:
+                            logger.warning("Mermaid validation failed for %s: %s", dir_label, err_msg)
+                            state["tobe_mermaid_path"] = None
+                        else:
+                            mmd_out = out_dirs["mermaid"] / f"{base_name}.mmd"
+                            mmd_out.write_text(mmd_text, encoding="utf-8")
+                            state["tobe_mermaid_path"] = str(mmd_out)
+                            logger.info("%s Mermaid UI path saved: %s", dir_label, mmd_out)
+                    except Exception as me:
+                        logger.warning("Could not convert %s DOT to Mermaid: %s", dir_label, me)
                         state["tobe_mermaid_path"] = None
-                    else:
-                        mmd_out = out_dirs["mermaid"] / f"{base_name}.mmd"
-                        mmd_out.write_text(mmd_text, encoding="utf-8")
-                        state["tobe_mermaid_path"] = str(mmd_out)   # UI now expects Mermaid path
-                        logger.info("%s Mermaid UI path saved: %s", dir_label, mmd_out)
-                except Exception as me:
-                    logger.warning("Could not convert %s DOT to Mermaid: %s", dir_label, me)
-                    state["tobe_mermaid_path"] = None
 
-                # ── PlantUML → <dir>/PlantUML/ (derived from DOT) ────────
-                try:
-                    puml_text = dot_to_plantuml(dot_src, intent_key)
-                    puml_out = out_dirs["plantuml"] / f"{base_name}.puml"
-                    puml_out.write_text(puml_text, encoding="utf-8")
-                    logger.info("%s PlantUML saved: %s", dir_label, puml_out)
-                except Exception as pe:
-                    logger.warning("Could not generate %s PlantUML: %s", dir_label, pe)
+                    try:
+                        puml_text = dot_to_plantuml(dot_src, intent_key)
+                        puml_out = out_dirs["plantuml"] / f"{base_name}.puml"
+                        puml_out.write_text(puml_text, encoding="utf-8")
+                        logger.info("%s PlantUML saved: %s", dir_label, puml_out)
+                    except Exception as pe:
+                        logger.warning("Could not generate %s PlantUML: %s", dir_label, pe)
 
-                # ── draw.io → <dir>/draw.io/ (derived from DOT) ──────────
-                try:
-                    drawio_text = dot_to_drawio(dot_src, intent_key)
-                    drawio_out = out_dirs["drawio"] / f"{base_name}.drawio"
-                    drawio_out.write_text(drawio_text, encoding="utf-8")
-                    logger.info("%s draw.io saved: %s", dir_label, drawio_out)
-                except Exception as de:
-                    logger.warning("Could not generate %s draw.io: %s", dir_label, de)
-            except Exception as e:
-                logger.warning("Could not save %s DOT: %s", dir_label, e)
+                    try:
+                        drawio_text = dot_to_drawio(dot_src, intent_key)
+                        drawio_out = out_dirs["drawio"] / f"{base_name}.drawio"
+                        drawio_out.write_text(drawio_text, encoding="utf-8")
+                        logger.info("%s draw.io saved: %s", dir_label, drawio_out)
+                    except Exception as de:
+                        logger.warning("Could not generate %s draw.io: %s", dir_label, de)
+                except Exception as e:
+                    logger.warning("Could not save %s DOT: %s", dir_label, e)
+
+            dspan.set_output(_extracted)
 
     # ── Eval scoring (async, non-blocking) ────────────────────────────────
     try:
         from .eval_metrics import score_response
         if not state.get("stream") and state.get("reply_text"):
             context_text = "\n".join(c.get("text", "") for c in chunks if c.get("text"))
-            state["eval_score"] = score_response(
-                query=state["user_message"],
-                answer=state["reply_text"],
-                context=context_text,
-            )
-            tracer.log_score("faithfulness", state["eval_score"])
-            raw_score   = state["eval_score"] or 0.0
-            score_10    = round(raw_score * 10, 1)
-            pct         = round(raw_score * 100, 1)
-            band        = (
-                "EXCELLENT" if score_10 >= 8.5 else
-                "GOOD"      if score_10 >= 7.0 else
-                "FAIR"      if score_10 >= 5.0 else
-                "LOW"
-            )
-            logger.info(
-                "[ACCURACY] %.1f/10  (%.1f%%)  [%s] — delivering response to user",
-                score_10, pct, band,
-            )
-
-            # Quality threshold: log low-confidence responses (not shown in UI)
-            if raw_score < 0.6:
-                logger.warning(
-                    "[ACCURACY] Low Confidence — score %.1f/10 below threshold (6.0/10). "
-                    "Please review and validate against source documents.",
-                    score_10,
+            with tracer.trace("eval_scoring", input={"intent": intent}) as espan:
+                state["eval_score"] = score_response(
+                    query=state["user_message"],
+                    answer=state["reply_text"],
+                    context=context_text,
                 )
+                tracer.log_score("faithfulness", state["eval_score"])
+                raw_score = state["eval_score"] or 0.0
+                score_10  = round(raw_score * 10, 1)
+                pct       = round(raw_score * 100, 1)
+                band      = (
+                    "EXCELLENT" if score_10 >= 8.5 else
+                    "GOOD"      if score_10 >= 7.0 else
+                    "FAIR"      if score_10 >= 5.0 else
+                    "LOW"
+                )
+                espan.set_output({"score": raw_score, "score_10": score_10, "band": band})
+                logger.info(
+                    "[ACCURACY] %.1f/10  (%.1f%%)  [%s] — delivering response to user",
+                    score_10, pct, band,
+                )
+                if raw_score < 0.6:
+                    logger.warning(
+                        "[ACCURACY] Low Confidence — score %.1f/10 below threshold (6.0/10). "
+                        "Please review and validate against source documents.",
+                        score_10,
+                    )
     except Exception as e:
         logger.warning("Eval scoring failed (non-blocking): %s", e)
         state["eval_score"] = None
@@ -801,19 +850,25 @@ def _node_principles(state: AgentState) -> AgentState:
 
     if (is_gap or is_narrative) and state.get("reply_text"):
         report_type = "gap_analysis" if is_gap else "assessment"
-        try:
-            images = generate_report_images(
-                narrative_text=state["reply_text"],
-                intent=intent,
-                report_type=report_type,
-                max_images=3,
-            )
-            if images:
-                state["report_images"] = images
-                logger.info("Generated %d images for %s report", len(images), report_type)
-        except Exception as e:
-            logger.warning("Image generation failed (non-blocking): %s", e)
-            state["report_images"] = None
+        with tracer.trace(
+            "image_generation",
+            input={"intent": intent, "report_type": report_type},
+        ) as ispan:
+            try:
+                images = generate_report_images(
+                    narrative_text=state["reply_text"],
+                    intent=intent,
+                    report_type=report_type,
+                    max_images=3,
+                )
+                if images:
+                    state["report_images"] = images
+                    logger.info("Generated %d images for %s report", len(images), report_type)
+                ispan.set_output({"image_count": len(images) if images else 0})
+            except Exception as e:
+                logger.warning("Image generation failed (non-blocking): %s", e)
+                state["report_images"] = None
+                ispan.set_error(str(e))
 
     return state
 
@@ -1229,8 +1284,15 @@ def run_chain(
       - ``asis_diagram_data`` : As-Is DOT data (for passing to next turn)
       - ``tobe_diagram_data`` : To-Be DOT data (for passing to next turn)
     """
+    import time as _time
+    from .token_counter import get_usage as _get_usage
+    from .token_cache import get_metrics as _get_cache_metrics
+
     if history is None:
         history = []
+
+    tracer = get_tracer()
+    _t0 = _time.monotonic()
 
     initial_state: AgentState = {
         "user_message": user_message,
@@ -1239,18 +1301,77 @@ def run_chain(
         "chroma_path": chroma_path,
         "graph_path": graph_path,
         "stream": stream,
-        "asis_diagram_data": asis_diagram_data,  # Preserve from prior turn
-        "tobe_diagram_data": tobe_diagram_data,  # Preserve from prior turn
+        "asis_diagram_data": asis_diagram_data,
+        "tobe_diagram_data": tobe_diagram_data,
     }
 
-    if _COMPILED_GRAPH is not None:
-        try:
-            final_state: AgentState = _COMPILED_GRAPH.invoke(initial_state)
-        except Exception as exc:
-            logger.error("LangGraph execution failed, falling back: %s", exc)
+    with tracer.trace(
+        "run_chain",
+        input={
+            "query_preview": user_message[:120],
+            "stream": stream,
+            "history_turns": len(history),
+        },
+    ) as root_span:
+        if _COMPILED_GRAPH is not None:
+            try:
+                final_state: AgentState = _COMPILED_GRAPH.invoke(initial_state)
+            except Exception as exc:
+                logger.error("LangGraph execution failed, falling back: %s", exc)
+                root_span.set_error(str(exc))
+                final_state = _fallback_run(initial_state)
+        else:
             final_state = _fallback_run(initial_state)
-    else:
-        final_state = _fallback_run(initial_state)
+
+        _total_ms = round((_time.monotonic() - _t0) * 1000, 1)
+        _usage    = _get_usage()
+        _cache    = _get_cache_metrics()
+        _has_error = bool(final_state.get("error"))
+
+        # ── Functional metrics ────────────────────────────────────────────
+        # Encode categorical values as numeric scores Langfuse can chart.
+        # Intent: process=1 people=2 technology=3 general=0
+        _intent_map = {"general": 0, "process": 1, "people": 2, "technology": 3}
+        _intent_val = _intent_map.get(final_state.get("intent", "general"), 0)
+
+        _functional: dict[str, float] = {
+            "intent_code":      float(_intent_val),           # 0–3
+            "is_gap_analysis":  float(bool(final_state.get("is_gap_analysis", False))),
+            "is_asis_request":  float(bool(final_state.get("is_asis", False))),
+            "has_diagram":      float(bool(final_state.get("diagram_path") or final_state.get("tobe_mermaid_path"))),
+            "has_error":        float(_has_error),
+        }
+        if final_state.get("eval_score") is not None:
+            _functional["faithfulness"] = float(final_state["eval_score"])
+
+        # ── Non-functional metrics ────────────────────────────────────────
+        _nonfunctional: dict[str, float] = {
+            "total_latency_ms":      _total_ms,
+            "prompt_tokens":         float(_usage.last_call_prompt),
+            "completion_tokens":     float(_usage.last_call_completion),
+            "session_total_tokens":  float(_usage.total_tokens),
+            "session_cost_inr":      float(_usage.total_cost_inr),
+            "cache_hit_rate":        float(_cache.hit_rate),
+            "cache_hits":            float(_cache.hits),
+            "cache_misses":          float(_cache.misses),
+        }
+
+        tracer.log_scores({**_functional, **_nonfunctional})
+
+        # ── Root span summary ─────────────────────────────────────────────
+        root_span.set_output({
+            "intent": final_state.get("intent"),
+            "diagram_type": final_state.get("diagram_type"),
+            "mode": final_state.get("mode", "principles"),
+            "eval_score": final_state.get("eval_score"),
+            "has_error": _has_error,
+            "total_latency_ms": _total_ms,
+            "session_total_tokens": _usage.total_tokens,
+            "session_cost_inr": round(_usage.total_cost_inr, 4),
+            "cache_hit_rate": round(_cache.hit_rate, 3),
+        })
+        if _has_error:
+            root_span.set_error(final_state["error"])
 
     return {
         "text": final_state.get("reply_text", ""),
@@ -1261,9 +1382,9 @@ def run_chain(
         "diagram_type": final_state.get("diagram_type"),
         "mode": final_state.get("mode", "principles"),
         "eval_score": final_state.get("eval_score"),
-        "asis_diagram_data": final_state.get("asis_diagram_data"),  # Pass to next turn
-        "tobe_diagram_data": final_state.get("tobe_diagram_data"),  # Pass to next turn
-        "report_images": final_state.get("report_images"),  # Generated images for docs
+        "asis_diagram_data": final_state.get("asis_diagram_data"),
+        "tobe_diagram_data": final_state.get("tobe_diagram_data"),
+        "report_images": final_state.get("report_images"),
     }
 
 
